@@ -90,6 +90,8 @@ jobs:
             mv libsodium-1.0.18-msvc/libsodium/x64/Release/v141/dynamic libsodium
           } elseif (Test-Path "libsodium-1.0.18-msvc/libsodium/x64/Release/v142/dynamic") {
             mv libsodium-1.0.18-msvc/libsodium/x64/Release/v142/dynamic libsodium
+          } elseif (Test-Path "libsodium-1.0.18-msvc/libsodium/x64/Release/v143/dynamic") {
+            mv libsodium-1.0.18-msvc/libsodium/x64/Release/v143/dynamic libsodium
           } else {
             Write-Error "Expected directory structure not found."
           }
