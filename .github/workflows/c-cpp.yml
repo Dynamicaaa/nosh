@@ -103,7 +103,7 @@ jobs:
         env:
           INCLUDE: ${{ env.INCLUDE }}
           LIB: ${{ env.LIB }}
-          CFLAGS: "-I${{ env.INCLUDE }}"
+          CFLAGS: "-I${{ env.INCLUDE }} -Iinclude"
           LDFLAGS: "-L${{ env.LIB }} -lsodium"
 
       - name: Check binary exists
