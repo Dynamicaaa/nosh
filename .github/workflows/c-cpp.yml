@@ -53,9 +53,9 @@ jobs:
       - name: Build
         run: make
         env:
-          LDFLAGS: "-L/usr/local/opt/libsodium/lib"
-          CPPFLAGS: "-I/usr/local/opt/libsodium/include"
-          PKG_CONFIG_PATH: "/usr/local/opt/libsodium/lib/pkgconfig"
+          LDFLAGS: ${{ env.LDFLAGS }}
+          CPPFLAGS: ${{ env.CPPFLAGS }}
+          PKG_CONFIG_PATH: ${{ env.PKG_CONFIG_PATH }}
 
       - name: Check binary exists
         run: test -f nosh
