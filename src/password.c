@@ -32,10 +32,13 @@ char* get_password(const char* prompt) {
     tcsetattr(STDIN_FILENO, TCSANOW, &new);
 
     printf("%s", prompt);
-    fgets(password, sizeof(password), stdin);
-
-    // Remove newline
-    password[strcspn(password, "\n")] = 0;
+    if (fgets(password, sizeof(password), stdin) == NULL) {
+        // Handle error or EOF
+        password[0] = '\0';
+    } else {
+        // Remove newline
+        password[strcspn(password, "\n")] = 0;
+    }
 
     // Restore terminal
     tcsetattr(STDIN_FILENO, TCSANOW, &old);
@@ -238,15 +241,17 @@ int store_password(const char* service, const char* username, const char* passwo
             return 0;
     }
 
-    // Read existing passwords
+    // First, read the salt from the beginning of the file
+    unsigned char salt[SALT_SIZE];
     FILE* fp = fopen(password_file, "rb");
     if (!fp) {
         printf("Password file not found.\n");
         return 0;
     }
 
-    // Skip the salt
-    fseek(fp, SALT_SIZE, SEEK_SET);
+    if (fread(salt, 1, SALT_SIZE, fp) != SALT_SIZE) {
+        printf("Warning: Could not read salt from password file\n");
+    }
 
     // Read all existing entries
     struct {
@@ -328,14 +333,6 @@ int store_password(const char* service, const char* username, const char* passwo
     if (!fp) {
         printf("Failed to open password file for writing!\n");
         return 0;
-    }
-
-    // Read the salt from the file
-    unsigned char salt[SALT_SIZE];
-    FILE* rfp = fopen(password_file, "rb");
-    if (rfp) {
-        fread(salt, 1, SALT_SIZE, rfp);
-        fclose(rfp);
     }
 
     // Write salt back
