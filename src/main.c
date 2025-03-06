@@ -16,6 +16,9 @@
 // This flag ensures we only clear the screen on actual exit, not on errors
 static int actually_exiting = 0;
 
+// Define the version string here for easy updates
+#define NOSH_VERSION "0.1.0"
+
 void cleanup_on_exit(void) {
     // Clear terminal scrollback buffer only if actually exiting and in XNU mode
     if (actually_exiting && is_xnu_mode_enabled()) {
@@ -27,7 +30,23 @@ void cleanup_on_exit(void) {
     clear_master_key();
 }
 
+// Print version information and exit
+void print_version(void) {
+    printf("nosh version %s\n", NOSH_VERSION);
+    printf("A secure, customizable shell with privacy features\n");
+    printf("Copyright (c) 2023\n");
+}
+
 int main(int argc, char *argv[]) {
+    // Process command-line arguments first
+    for (int i = 1; i < argc; i++) {
+        // Check for version flag
+        if (strcmp(argv[i], "--version") == 0 || strcmp(argv[i], "-v") == 0) {
+            print_version();
+            return 0;
+        }
+    }
+
     char hostname[256];
     char *username = getlogin();
     if (gethostname(hostname, sizeof(hostname)) != 0) {
