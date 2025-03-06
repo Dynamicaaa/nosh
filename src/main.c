@@ -11,8 +11,13 @@
 #include "aliases.h"
 #include "password.h"
 #include "environment.h"
+
+#ifdef _WIN32
+#include <editline/readline.h>
+#else
 #include <readline/readline.h>
 #include <readline/history.h>
+#endif
 
 // This flag ensures we only clear the screen on actual exit, not on errors
 static int actually_exiting = 0;
