@@ -1,3 +1,4 @@
+#include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -32,9 +33,14 @@ void cleanup_on_exit(void) {
 
 // Print version information and exit
 void print_version(void) {
+    // Get current year dynamically
+    time_t now = time(NULL);
+    struct tm *tm_info = localtime(&now);
+    int current_year = tm_info->tm_year + 1900; // tm_year is years since 1900
+
     printf("nosh version %s\n", NOSH_VERSION);
     printf("A secure, customizable shell with privacy features\n");
-    printf("Copyright (c) 2023\n");
+    printf("Copyright (c) %d\n", current_year);
 }
 
 int main(int argc, char *argv[]) {
