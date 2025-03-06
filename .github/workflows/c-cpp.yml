@@ -16,17 +16,26 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential libreadline-dev libsodium-dev
+          sudo apt-get install -y build-essential libreadline-dev libsodium-dev cmake
+
+      - name: Configure CMake
+        run: cmake -B build -S .
 
       - name: Build
-        run: make
+        run: cmake --build build
+
+      - name: Install
+        run: sudo cmake --install build
 
       - name: Check binary exists
-        run: test -f nosh
+        run: test -f /usr/local/bin/nosh
 
       - name: Test version command
         run: |
-          ./nosh --version || true
+          /usr/local/bin/nosh --version || true
+
+      - name: Uninstall
+        run: sudo cmake --build build --target uninstall
 
   build-macos:
     runs-on: macos-latest
@@ -42,7 +51,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          brew install gcc readline libsodium
+          brew install gcc readline libsodium cmake
 
       - name: Set Sodium environment variables
         run: |
@@ -50,19 +59,28 @@ jobs:
           echo 'CPPFLAGS="-I/usr/local/opt/libsodium/include"' >> $GITHUB_ENV
           echo 'PKG_CONFIG_PATH="/usr/local/opt/libsodium/lib/pkgconfig"' >> $GITHUB_ENV
 
-      - name: Build
-        run: make
+      - name: Configure CMake
+        run: cmake -B build -S .
         env:
           LDFLAGS: ${{ env.LDFLAGS }}
           CPPFLAGS: ${{ env.CPPFLAGS }}
           PKG_CONFIG_PATH: ${{ env.PKG_CONFIG_PATH }}
 
+      - name: Build
+        run: cmake --build build
+
+      - name: Install
+        run: sudo cmake --install build
+
       - name: Check binary exists
-        run: test -f nosh
+        run: test -f /usr/local/bin/nosh
 
       - name: Test version command
         run: |
-          ./nosh --version || true
+          /usr/local/bin/nosh --version || true
+
+      - name: Uninstall
+        run: sudo cmake --build build --target uninstall
 
   build-windows:
     runs-on: windows-latest
@@ -80,7 +98,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          choco install -y mingw make
+          choco install -y mingw make cmake
 
       - name: Install vcpkg and libsodium
         run: |
@@ -98,16 +116,20 @@ jobs:
           echo "INCLUDE=$env:INCLUDE" >> $GITHUB_ENV
           echo "LIB=$env:LIB" >> $GITHUB_ENV
 
-      - name: Build
-        run: make
+      - name: Configure CMake
+        run: cmake -B build -S .
         env:
           INCLUDE: ${{ env.INCLUDE }}
           LIB: ${{ env.LIB }}
-          CFLAGS: "-I${{ env.INCLUDE }} -Iinclude"
-          LDFLAGS: "-L${{ env.LIB }} -lsodium"
+
+      - name: Build
+        run: cmake --build build
 
       - name: Check binary exists
-        run: if exist nosh.exe (echo Binary exists) else (exit 1)
+        run: if exist build\nosh.exe (echo Binary exists) else (exit 1)
 
       - name: Test version command
-        run: .\nosh.exe --version || true
+        run: .\build\nosh.exe --version || true
+
+      - name: Uninstall
+        run: cmake --build build --target uninstall
