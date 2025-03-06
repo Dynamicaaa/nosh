@@ -26,6 +26,11 @@
 #endif
 #endif
 
+#ifdef __APPLE__
+#include <net/route.h> // For macOS routing table info
+#include <sys/sysctl.h> // For sysctl function and CTL_NET definition
+#endif
+
 // Function declaration for run_routing_table_check
 int run_routing_table_check(void);
 
@@ -455,48 +460,86 @@ int run_network_security_scan(void) {
 int run_routing_table_check(void) {
     printf("\n[Routing Table]\n");
 #ifdef __linux__
-    // Linux: Get routing table using ioctl
-    int sock = socket(AF_INET, SOCK_DGRAM, 0);
+    // Linux: Get routing table using netlink
+    int sock = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
     if (sock < 0) {
         perror("socket");
         return 1;
     }
 
-    struct rt_msghdr *rtm;
-    char buffer[4096]; // Increased buffer size for potentially large routing table
+    struct {
+        struct nlmsghdr nlh;
+        struct rtmsg rtm;
+        char buf[8192];
+    } req;
 
-    rtm = (struct rt_msghdr *)buffer;
-    memset(rtm, 0, sizeof(struct rt_msghdr));
-    rtm->rtm_len = sizeof(struct rt_msghdr);
-    rtm->rtm_family = AF_INET;
-    rtm->rtm_type = RTM_GET;
-    rtm->rtm_flags = RTF_UP | RTF_GATEWAY | RTF_HOST | RTF_REINSTATE; // Common flags, adjust as needed
+    memset(&req, 0, sizeof(req));
+    req.nlh.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
+    req.nlh.nlmsg_type = RTM_GETROUTE;
+    req.nlh.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP;
+    req.nlh.nlmsg_seq = 1;
+    req.nlh.nlmsg_pid = getpid();
+    req.rtm.rtm_family = AF_INET;
 
-    if (ioctl(sock, SIOCGRTABLE, buffer) < 0) {
-        perror("ioctl SIOCGRTABLE");
+    struct sockaddr_nl sa;
+    memset(&sa, 0, sizeof(sa));
+    sa.nl_family = AF_NETLINK;
+
+    if (sendto(sock, &req, req.nlh.nlmsg_len, 0, (struct sockaddr*)&sa, sizeof(sa)) < 0) {
+        perror("sendto");
         close(sock);
         return 1;
     }
 
+    char buffer[8192];
+    struct iovec iov = { buffer, sizeof(buffer) };
+    struct msghdr msg = { &sa, sizeof(sa), &iov, 1, NULL, 0, 0 };
 
-    printf("Destination\tGateway\t\tNetmask\t\tInterface\n");
-    printf("---------------------------------------------------------\n");
+    int len;
+    while ((len = recvmsg(sock, &msg, 0)) > 0) {
+        struct nlmsghdr *nlh = (struct nlmsghdr *)buffer;
+        for (; NLMSG_OK(nlh, len); nlh = NLMSG_NEXT(nlh, len)) {
+            if (nlh->nlmsg_type == NLMSG_DONE) {
+                close(sock);
+                return 1;
+            }
+            if (nlh->nlmsg_type == NLMSG_ERROR) {
+                perror("NLMSG_ERROR");
+                close(sock);
+                return 1;
+            }
 
-    // Note: Parsing ioctl output for routing table is OS-specific and complex.
-    // This is a very basic example and may need significant adjustment.
-    // Real-world routing table parsing is usually done using netlink or dedicated libraries.
+            struct rtmsg *rtm = (struct rtmsg *)NLMSG_DATA(nlh);
+            struct rtattr *rta = (struct rtattr *)RTM_RTA(rtm);
+            int rta_len = RTM_PAYLOAD(nlh);
 
-    // In a real scenario, you would parse the `buffer` content which is a sequence
-    // of routing entries. The format is OS and kernel version dependent and
-    // requires careful structure and bit field handling to extract routes reliably.
+            char dst[INET_ADDRSTRLEN] = "0.0.0.0";
+            char gw[INET_ADDRSTRLEN] = "0.0.0.0";
+            char mask[INET_ADDRSTRLEN] = "0.0.0.0";
+            char ifname[IF_NAMESIZE] = "";
 
-    // This simplified output is just a placeholder:
-    printf("Routing table information retrieval from scratch on Linux using ioctl is complex and requires extensive parsing.\n");
-    printf("Consider using `route -n` command output for a more human-readable view, or netlink for programmatic and robust access.\n");
+            for (; RTA_OK(rta, rta_len); rta = RTA_NEXT(rta, rta_len)) {
+                switch (rta->rta_type) {
+                    case RTA_DST:
+                        inet_ntop(AF_INET, RTA_DATA(rta), dst, sizeof(dst));
+                        break;
+                    case RTA_GATEWAY:
+                        inet_ntop(AF_INET, RTA_DATA(rta), gw, sizeof(gw));
+                        break;
+                    case RTA_PREFSRC:
+                        inet_ntop(AF_INET, RTA_DATA(rta), mask, sizeof(mask));
+                        break;
+                    case RTA_OIF:
+                        if_indextoname(*(int *)RTA_DATA(rta), ifname);
+                        break;
+                }
+            }
 
+            printf("%-16s %-16s %-16s %s\n", dst, gw, mask, ifname);
+        }
+    }
 
     close(sock);
-
 
 #elif defined(_WIN32)
     // Windows: Get routing table using GetIpForwardTable
@@ -510,7 +553,7 @@ int run_routing_table_check(void) {
         if (pIpForwardTable) {
             dwRet = GetIpForwardTable(pIpForwardTable, &dwSize, FALSE);
             if (dwRet == NO_ERROR) {
-                 printf("Destination\t\tNetmask\t\tGateway\t\tIface\tMetric\tProto\tType\n");
+                printf("Destination\t\tNetmask\t\tGateway\t\tIface\tMetric\tProto\tType\n");
                 printf("------------------------------------------------------------------------------------\n");
                 for (int i = 0; i < (int)pIpForwardTable->dwNumEntries; i++) {
                     MIB_IPFORWARDROW *row = &pIpForwardTable->table[i];
@@ -552,12 +595,59 @@ int run_routing_table_check(void) {
         printf("GetIpForwardTable (size query) failed with error %ld\n", dwRet);
     }
 
-
 #elif defined(__APPLE__)
-    printf("\n[Routing Table]\n");
-    printf("Routing table information on macOS can be quite complex to retrieve programmatically from scratch.\n");
-    printf("Using command-line tools like `netstat -rn` or `route get default` is generally recommended on macOS.\n");
-    printf("For programmatic access, consider using the `sysctl` interface with routing MIBs, but it is advanced.\n");
+    // macOS: Get routing table using sysctl
+    int mib[6] = {CTL_NET, PF_ROUTE, 0, AF_INET, NET_RT_DUMP, 0};
+    size_t needed;
+    if (sysctl(mib, 6, NULL, &needed, NULL, 0) < 0) {
+        perror("sysctl");
+        return 1;
+    }
+
+    char *buf = malloc(needed);
+    if (buf == NULL) {
+        perror("malloc");
+        return 1;
+    }
+
+    if (sysctl(mib, 6, buf, &needed, NULL, 0) < 0) {
+        perror("sysctl");
+        free(buf);
+        return 1;
+    }
+
+    char *next = buf;
+    char *end = buf + needed;
+    printf("Destination\tGateway\t\tNetmask\t\tInterface\n");
+    printf("---------------------------------------------------------\n");
+
+    while (next < end) {
+        struct rt_msghdr *rtm = (struct rt_msghdr *)next;
+        struct sockaddr *sa = (struct sockaddr *)(rtm + 1);
+        struct sockaddr_in *dst = NULL, *gateway = NULL, *netmask = NULL;
+        char ifname[IF_NAMESIZE];
+
+        for (int i = 0; i < RTAX_MAX; i++) {
+            if (rtm->rtm_addrs & (1 << i)) {
+                if (i == RTAX_DST) dst = (struct sockaddr_in *)sa;
+                if (i == RTAX_GATEWAY) gateway = (struct sockaddr_in *)sa;
+                if (i == RTAX_NETMASK) netmask = (struct sockaddr_in *)sa;
+                sa = (struct sockaddr *)((char *)sa + sa->sa_len);
+            }
+        }
+
+        if (dst && gateway && netmask) {
+            printf("%-16s\t", inet_ntoa(dst->sin_addr));
+            printf("%-16s\t", inet_ntoa(gateway->sin_addr));
+            printf("%-16s\t", inet_ntoa(netmask->sin_addr));
+            if_indextoname(rtm->rtm_index, ifname);
+            printf("%s\n", ifname);
+        }
+
+        next += rtm->rtm_msglen;
+    }
+
+    free(buf);
 
 #else
     printf("\n[Routing Table]\n");
