@@ -16,7 +16,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential libreadline-dev libsodium-dev cmake
+          sudo apt-get install -y build-essential libreadline-dev libsodium-dev cmake pkg-config
 
       - name: Configure CMake
         run: cmake -B build -S .
@@ -51,7 +51,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          brew install gcc readline libsodium cmake
+          brew install gcc readline libsodium cmake pkg-config
 
       - name: Set Sodium environment variables
         run: |
@@ -98,7 +98,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          choco install -y mingw make cmake
+          choco install -y mingw make cmake pkgconfiglite
 
       - name: Install vcpkg and libsodium
         run: |
