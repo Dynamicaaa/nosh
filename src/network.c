@@ -23,6 +23,8 @@
 #include <sys/types.h>
 #include <linux/route.h> // For Linux routing table info
 #include <sys/ioctl.h>   // For SIOCGRTABLE on Linux
+#include <linux/netlink.h>
+#include <linux/rtnetlink.h>
 #endif
 #endif
 
