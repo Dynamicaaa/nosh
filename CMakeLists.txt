@@ -13,11 +13,14 @@ file(GLOB SOURCES "src/*.c")
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(SODIUM REQUIRED libsodium)
 
+# Find readline
+find_package(Readline REQUIRED)
+
 # Add executable
 add_executable(nosh ${SOURCES})
 
 # Link libraries
-target_link_libraries(nosh ${SODIUM_LIBRARIES})
+target_link_libraries(nosh ${SODIUM_LIBRARIES} Readline::Readline)
 target_include_directories(nosh PRIVATE ${SODIUM_INCLUDE_DIRS})
 
 # Install target
