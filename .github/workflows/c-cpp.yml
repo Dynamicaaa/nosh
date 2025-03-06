@@ -2,28 +2,28 @@ name: C/C++ CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
-    
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y build-essential libreadline-dev libssl-dev
-    
-    - name: Build
-      run: make
-    
-    - name: Check binary exists
-      run: test -f build/nosh
-    
-    - name: Test version command
-      run: |
-        ./build/nosh --version || true
+      - uses: actions/checkout@v2
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libreadline-dev libssl-dev
+
+      - name: Build
+        run: make
+
+      - name: Check binary exists
+        run: test -f nosh
+
+      - name: Test version command
+        run: |
+          ./nosh --version || true
