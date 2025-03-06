@@ -106,6 +106,8 @@ jobs:
         env:
           INCLUDE: ${{ env.INCLUDE }}
           LIB: ${{ env.LIB }}
+          CFLAGS: "-I${{ env.INCLUDE }}"
+          LDFLAGS: "-L${{ env.LIB }} -lsodium"
 
       - name: Check binary exists
         run: if exist nosh.exe (echo Binary exists) else (exit 1)
