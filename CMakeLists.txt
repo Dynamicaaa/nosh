@@ -10,18 +10,18 @@ include_directories(include)
 file(GLOB SOURCES "src/*.c")
 
 # Find libsodium
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(SODIUM REQUIRED libsodium)
+find_package(sodium REQUIRED)
 
 # Find readline
+find_package(PkgConfig REQUIRED)
 pkg_check_modules(READLINE REQUIRED readline)
 
 # Add executable
 add_executable(nosh ${SOURCES})
 
 # Link libraries
-target_link_libraries(nosh ${SODIUM_LIBRARIES} ${READLINE_LIBRARIES})
-target_include_directories(nosh PRIVATE ${SODIUM_INCLUDE_DIRS} ${READLINE_INCLUDE_DIRS})
+target_link_libraries(nosh sodium::sodium ${READLINE_LIBRARIES})
+target_include_directories(nosh PRIVATE ${READLINE_INCLUDE_DIRS})
 
 # Install target
 install(TARGETS nosh DESTINATION /usr/local/bin)
