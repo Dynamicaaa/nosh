@@ -82,22 +82,19 @@ jobs:
         run: |
           choco install -y mingw make
 
-      - name: Download and extract libsodium
+      - name: Install vcpkg and libsodium
         run: |
-          curl -L -o libsodium.zip https://download.libsodium.org/libsodium/releases/libsodium-1.0.18-msvc.zip
-          powershell -Command "Expand-Archive libsodium.zip -DestinationPath ."
-          $staticDir = Get-ChildItem -Recurse -Directory -Filter "static" | Select-Object -First 1
-          if ($staticDir) {
-            Move-Item $staticDir.FullName libsodium
-          } else {
-            Write-Error "Expected directory structure not found."
-          }
+          git clone https://github.com/Microsoft/vcpkg.git
+          cd vcpkg
+          .\bootstrap-vcpkg.bat
+          .\vcpkg install libsodium
+          .\vcpkg integrate install
 
       - name: Set Sodium environment variables
         run: |
-          $env:Path += ";$PWD\libsodium\bin"
-          $env:INCLUDE = "$PWD\libsodium\include"
-          $env:LIB = "$PWD\libsodium\lib"
+          $env:Path += ";$PWD\vcpkg\installed\x64-windows\bin"
+          $env:INCLUDE = "$PWD\vcpkg\installed\x64-windows\include"
+          $env:LIB = "$PWD\vcpkg\installed\x64-windows\lib"
           echo "INCLUDE=$env:INCLUDE" >> $GITHUB_ENV
           echo "LIB=$env:LIB" >> $GITHUB_ENV
 
