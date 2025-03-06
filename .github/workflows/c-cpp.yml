@@ -80,7 +80,13 @@ jobs:
 
       - name: Install dependencies
         run: |
-          choco install -y mingw make libsodium
+          choco install -y mingw make
+
+      - name: Download and extract libsodium
+        run: |
+          curl -L -o libsodium.zip https://download.libsodium.org/libsodium/releases/libsodium-1.0.18-msvc.zip
+          tar -xf libsodium.zip
+          mv libsodium-1.0.18-msvc/libsodium/x64/Release/v141/dynamic libsodium
 
       - name: Set Sodium environment variables
         run: |
