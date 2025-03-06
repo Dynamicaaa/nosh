@@ -9,17 +9,15 @@ TARGET = nosh
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
     # macOS-specific flags
-    LDFLAGS = -lcrypto
-    # Check if OpenSSL is installed via Homebrew
-    ifneq ($(wildcard /usr/local/opt/openssl),)
-        CFLAGS += -I/usr/local/opt/openssl/include
-        LDFLAGS += -L/usr/local/opt/openssl/lib
+    LDFLAGS = -lsodium
+    # Check if libsodium is installed via Homebrew
+    ifneq ($(wildcard /usr/local/opt/libsodium),)
+        CFLAGS += -I/usr/local/opt/libsodium/include
+        LDFLAGS += -L/usr/local/opt/libsodium/lib
     endif
 else
     # Linux and other platforms
-    LDFLAGS = -lcrypto
-    # Static linking option for Linux, but not for crypto (security reasons)
-    # LDFLAGS += -static
+    LDFLAGS = -lsodium
 endif
 
 all: $(TARGET)

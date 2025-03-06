@@ -5,10 +5,8 @@
 #include <termios.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <openssl/evp.h>
-#include <openssl/rand.h>
-#include <openssl/sha.h>
 #include "password.h"
+#include "cobalt.h"
 
 #define SALT_SIZE 16
 #define IV_SIZE 16
@@ -19,6 +17,9 @@
 static char password_file[PATH_MAX] = "";
 static unsigned char master_key[KEY_SIZE] = {0};
 static int master_key_initialized = 0;
+
+// Function declaration
+int decrypt(const unsigned char* ciphertext, size_t ciphertext_len, const unsigned char* tag, const unsigned char* key, const unsigned char* iv, unsigned char* plaintext);
 
 // Get password without echo
 char* get_password(const char* prompt) {
@@ -47,103 +48,7 @@ char* get_password(const char* prompt) {
     return password;
 }
 
-// Derives a key from a password and salt
-static int derive_key(const char* password, const unsigned char* salt,
-                     unsigned char* key, size_t key_len) {
-    if (!password || !salt || !key)
-        return 0;
-
-    // Use PBKDF2 to derive a key
-    if (!PKCS5_PBKDF2_HMAC(password, strlen(password),
-                         salt, SALT_SIZE,
-                         10000, // iterations
-                         EVP_sha256(),
-                         key_len, key)) {
-        return 0;
-    }
-
-    return 1;
-}
-
-// Encrypts data using AES-256-GCM
-static int aes_encrypt(const unsigned char* plaintext, size_t plaintext_len,
-                      const unsigned char* key, const unsigned char* iv,
-                      unsigned char* ciphertext, unsigned char* tag) {
-    EVP_CIPHER_CTX *ctx;
-    int len;
-    int ciphertext_len;
-
-    // Create and initialize the context
-    if(!(ctx = EVP_CIPHER_CTX_new()))
-        return -1;
-
-    // Initialize encryption operation
-    if(1 != EVP_EncryptInit_ex(ctx, EVP_aes_256_gcm(), NULL, key, iv))
-        return -1;
-
-    // Encrypt plaintext
-    if(1 != EVP_EncryptUpdate(ctx, ciphertext, &len, plaintext, plaintext_len))
-        return -1;
-    ciphertext_len = len;
-
-    // Finalize encryption
-    if(1 != EVP_EncryptFinal_ex(ctx, ciphertext + len, &len))
-        return -1;
-    ciphertext_len += len;
-
-    // Get the tag
-    if(1 != EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, TAG_SIZE, tag))
-        return -1;
-
-    // Clean up
-    EVP_CIPHER_CTX_free(ctx);
-
-    return ciphertext_len;
-}
-
-// Decrypts data using AES-256-GCM
-static int decrypt(const unsigned char* ciphertext, size_t ciphertext_len,
-                  const unsigned char* tag,
-                  const unsigned char* key, const unsigned char* iv,
-                  unsigned char* plaintext) {
-    EVP_CIPHER_CTX *ctx;
-    int len;
-    int plaintext_len;
-    int ret;
-
-    // Create and initialize the context
-    if(!(ctx = EVP_CIPHER_CTX_new()))
-        return -1;
-
-    // Initialize decryption operation
-    if(1 != EVP_DecryptInit_ex(ctx, EVP_aes_256_gcm(), NULL, key, iv))
-        return -1;
-
-    // Decrypt ciphertext
-    if(1 != EVP_DecryptUpdate(ctx, plaintext, &len, ciphertext, ciphertext_len))
-        return -1;
-    plaintext_len = len;
-
-    // Set expected tag value
-    if(1 != EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, TAG_SIZE, (void*)tag))
-        return -1;
-
-    // Finalize decryption
-    ret = EVP_DecryptFinal_ex(ctx, plaintext + len, &len);
-
-    // Clean up
-    EVP_CIPHER_CTX_free(ctx);
-
-    if(ret > 0) {
-        // Successful decryption
-        plaintext_len += len;
-        return plaintext_len;
-    } else {
-        // Tag verification failed
-        return -1;
-    }
-}
-
+// Initialize the password manager
 void initialize_password_manager(void) {
     char *home = getenv("HOME");
     if (!home) return;
@@ -175,13 +80,7 @@ void initialize_password_manager(void) {
 
         // Generate a random salt
         unsigned char salt[SALT_SIZE];
-        if (RAND_bytes(salt, SALT_SIZE) != 1) {
-            printf("Failed to generate random salt! Password manager not initialized.\n");
-            return;
-        }
-
-        // Derive a key from the password
-        if (!derive_key(master_password, salt, master_key, KEY_SIZE)) {
+        if (!cobalt_derive_key(master_password, salt, master_key, KEY_SIZE)) {
             printf("Key derivation failed! Password manager not initialized.\n");
             return;
         }
@@ -200,6 +99,7 @@ void initialize_password_manager(void) {
     }
 }
 
+// Unlock the password manager with the master password
 int unlock_password_manager(void) {
     // If already unlocked, do nothing
     if (master_key_initialized)
@@ -226,7 +126,7 @@ int unlock_password_manager(void) {
     char* master_password = get_password("Enter master password: ");
 
     // Derive the key
-    if (!derive_key(master_password, salt, master_key, KEY_SIZE)) {
+    if (!cobalt_derive_key(master_password, salt, master_key, KEY_SIZE)) {
         printf("Key derivation failed!\n");
         return 0;
     }
@@ -235,6 +135,7 @@ int unlock_password_manager(void) {
     return 1;
 }
 
+// Store a password
 int store_password(const char* service, const char* username, const char* password) {
     if (!master_key_initialized) {
         if (!unlock_password_manager())
@@ -310,20 +211,7 @@ int store_password(const char* service, const char* username, const char* passwo
 
     // Generate random IV
     unsigned char iv[IV_SIZE];
-    if (RAND_bytes(iv, IV_SIZE) != 1) {
-        printf("Failed to generate random IV!\n");
-        return 0;
-    }
-
-    // Encrypt the password
-    size_t password_len = strlen(password);
-    unsigned char ciphertext[1024];
-    unsigned char tag[TAG_SIZE];
-
-    int ciphertext_len = aes_encrypt((unsigned char*)password, password_len,
-                                   master_key, iv, ciphertext, tag);
-
-    if (ciphertext_len < 0) {
+    if (!cobalt_encrypt((unsigned char*)password, strlen(password), master_key, entries[entry_count].data, iv, entries[entry_count].data + strlen(password))) {
         printf("Encryption failed!\n");
         return 0;
     }
@@ -377,12 +265,10 @@ int store_password(const char* service, const char* username, const char* passwo
     fwrite(username, 1, username_len, fp);
 
     // Write data size
-    fwrite(&ciphertext_len, sizeof(size_t), 1, fp);
+    fwrite(&entries[entry_count].size, sizeof(size_t), 1, fp);
 
     // Write encrypted data, IV, and tag
-    fwrite(ciphertext, 1, ciphertext_len, fp);
-    fwrite(iv, 1, IV_SIZE, fp);
-    fwrite(tag, 1, TAG_SIZE, fp);
+    fwrite(entries[entry_count].data, 1, entries[entry_count].size + IV_SIZE + TAG_SIZE, fp);
 
     fclose(fp);
 
@@ -390,6 +276,7 @@ int store_password(const char* service, const char* username, const char* passwo
     return 1;
 }
 
+// Retrieve a password
 int retrieve_password(const char* service, const char* username) {
     if (!master_key_initialized) {
         if (!unlock_password_manager())
@@ -475,6 +362,7 @@ int retrieve_password(const char* service, const char* username) {
     return 0;
 }
 
+// List all stored passwords
 int list_passwords(void) {
     if (!master_key_initialized) {
         if (!unlock_password_manager())
@@ -530,7 +418,12 @@ int list_passwords(void) {
     return 1;
 }
 
+// Clear the master key from memory
 void clear_master_key(void) {
     memset(master_key, 0, KEY_SIZE);
     master_key_initialized = 0;
+}
+
+int decrypt(const unsigned char* ciphertext, size_t ciphertext_len, const unsigned char* tag, const unsigned char* key, const unsigned char* iv, unsigned char* plaintext) {
+    return cobalt_decrypt(ciphertext, ciphertext_len, tag, key, iv, plaintext);
 }

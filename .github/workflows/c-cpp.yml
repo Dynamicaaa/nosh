@@ -16,7 +16,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential libreadline-dev libssl-dev
+          sudo apt-get install -y build-essential libreadline-dev libsodium-dev
 
       - name: Build
         run: make
@@ -42,20 +42,20 @@ jobs:
 
       - name: Install dependencies
         run: |
-          brew install gcc readline openssl
+          brew install gcc readline libsodium
 
-      - name: Set OpenSSL environment variables
+      - name: Set Sodium environment variables
         run: |
-          echo 'LDFLAGS="-L/usr/local/opt/openssl@3/lib"' >> $GITHUB_ENV
-          echo 'CPPFLAGS="-I/usr/local/opt/openssl@3/include"' >> $GITHUB_ENV
-          echo 'PKG_CONFIG_PATH="/usr/local/opt/openssl@3/lib/pkgconfig"' >> $GITHUB_ENV
+          echo 'LDFLAGS="-L/usr/local/opt/libsodium/lib"' >> $GITHUB_ENV
+          echo 'CPPFLAGS="-I/usr/local/opt/libsodium/include"' >> $GITHUB_ENV
+          echo 'PKG_CONFIG_PATH="/usr/local/opt/libsodium/lib/pkgconfig"' >> $GITHUB_ENV
 
       - name: Build
         run: make
         env:
-          LDFLAGS: "-L/usr/local/opt/openssl@3/lib"
-          CPPFLAGS: "-I/usr/local/opt/openssl@3/include"
-          PKG_CONFIG_PATH: "/usr/local/opt/openssl@3/lib/pkgconfig"
+          LDFLAGS: "-L/usr/local/opt/libsodium/lib"
+          CPPFLAGS: "-I/usr/local/opt/libsodium/include"
+          PKG_CONFIG_PATH: "/usr/local/opt/libsodium/lib/pkgconfig"
 
       - name: Check binary exists
         run: test -f nosh
@@ -80,13 +80,13 @@ jobs:
 
       - name: Install dependencies
         run: |
-          choco install -y mingw make openssl libedit
+          choco install -y mingw make libsodium
 
-      - name: Set OpenSSL environment variables
+      - name: Set Sodium environment variables
         run: |
-          $env:Path += ";C:\Program Files\OpenSSL-Win64\bin"
-          $env:INCLUDE = "C:\Program Files\OpenSSL-Win64\include"
-          $env:LIB = "C:\Program Files\OpenSSL-Win64\lib"
+          $env:Path += ";C:\Program Files\libsodium\bin"
+          $env:INCLUDE = "C:\Program Files\libsodium\include"
+          $env:LIB = "C:\Program Files\libsodium\lib"
 
       - name: Build
         run: |
