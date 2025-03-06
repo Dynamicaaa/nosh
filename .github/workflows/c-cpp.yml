@@ -44,6 +44,11 @@ jobs:
         run: |
           brew install gcc readline openssl
 
+      - name: Set OpenSSL environment variables
+        run: |
+          echo 'export LDFLAGS="-L/usr/local/opt/openssl/lib"' >> $GITHUB_ENV
+          echo 'export CPPFLAGS="-I/usr/local/opt/openssl/include"' >> $GITHUB_ENV
+
       - name: Build
         run: make
 
@@ -71,6 +76,12 @@ jobs:
       - name: Install dependencies
         run: |
           choco install -y mingw make openssl
+
+      - name: Set OpenSSL environment variables
+        run: |
+          $env:Path += ";C:\Program Files\OpenSSL-Win64\bin"
+          $env:INCLUDE = "C:\Program Files\OpenSSL-Win64\include"
+          $env:LIB = "C:\Program Files\OpenSSL-Win64\lib"
 
       - name: Build
         run: |

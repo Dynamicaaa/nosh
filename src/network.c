@@ -4,7 +4,6 @@
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <net/if.h>
 #include "network.h"
 
 #ifdef _WIN32
@@ -14,6 +13,7 @@
 #pragma comment(lib, "Ws2_32.lib")
 #pragma comment(lib, "Iphlpapi.lib")
 #else
+#include <net/if.h>
 #include <ifaddrs.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
