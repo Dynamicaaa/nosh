@@ -10,8 +10,6 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <iphlpapi.h>
-#pragma comment(lib, "Ws2_32.lib")
-#pragma comment(lib, "Iphlpapi.lib")
 #else
 #include <net/if.h>
 #include <ifaddrs.h>
@@ -567,15 +565,15 @@ int run_routing_table_check(void) {
                     printf("%-16s\t", inet_ntoa(dest_addr));
                     printf("%-16s\t", inet_ntoa(mask_addr));
                     printf("%-16s\t", inet_ntoa(gw_addr));
-                    printf("%-5d\t", row->dwForwardIfIndex);
-                    printf("%-6d\t", row->dwForwardMetric1);
+                    printf("%-5lu\t", row->dwForwardIfIndex);
+                    printf("%-6lu\t", row->dwForwardMetric1);
 
                     switch (row->dwForwardProto) {
                         case MIB_IPPROTO_NETMGMT: printf("NETMGMT\t"); break;
                         case MIB_IPPROTO_ICMP: printf("ICMP\t"); break;
-                        case MIB_IPPROTO_TCP: printf("TCP\t"); break;
-                        case MIB_IPPROTO_UDP: printf("UDP\t"); break;
-                        default: printf("Other(%d)\t", row->dwForwardProto);
+                        case IPPROTO_TCP: printf("TCP\t"); break;
+                        case IPPROTO_UDP: printf("UDP\t"); break;
+                        default: printf("Other(%lu)\t", row->dwForwardProto);
                     }
 
                     switch (row->dwForwardType) {
@@ -583,7 +581,7 @@ int run_routing_table_check(void) {
                         case MIB_IPROUTE_TYPE_INVALID: printf("Invalid\n"); break;
                         case MIB_IPROUTE_TYPE_DIRECT: printf("Direct\n"); break;
                         case MIB_IPROUTE_TYPE_INDIRECT: printf("Indirect\n"); break;
-                        default: printf("Unknown(%d)\n", row->dwForwardType);
+                        default: printf("Unknown(%lu)\n", row->dwForwardType);
                     }
                 }
             } else {
@@ -712,7 +710,7 @@ int show_network_interfaces(void) {
             }
 
             // Flags - basic indication (more detailed flags would require parsing pAdapter->Type and other fields)
-            if (pAdapter->OperStatus == MIB_IF_OPER_STATUS_UP) {
+            if (pAdapter->Type == MIB_IF_TYPE_ETHERNET) {
                 printf("UP RUNNING ");
             } else {
                 printf("DOWN ");
