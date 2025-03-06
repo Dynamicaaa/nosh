@@ -10,7 +10,12 @@ include_directories(include)
 file(GLOB SOURCES "src/*.c")
 
 # Find libsodium
-find_package(sodium REQUIRED)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(SODIUM REQUIRED libsodium)
+
+# Then adjust your target settings:
+target_include_directories(nosh PRIVATE ${SODIUM_INCLUDE_DIRS})
+target_link_libraries(nosh ${SODIUM_LIBRARIES} ${READLINE_LIBRARIES})
 
 # Find readline
 find_package(PkgConfig REQUIRED)
