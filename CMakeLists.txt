@@ -5,19 +5,26 @@ set(NOSH_VERSION_MAJOR 0)
 set(NOSH_VERSION_MINOR 1)
 set(NOSH_VERSION_PATCH 0)
 
-# Create basic version string for project() command
+# Create base version string
 set(NOSH_BASE_VERSION "${NOSH_VERSION_MAJOR}.${NOSH_VERSION_MINOR}.${NOSH_VERSION_PATCH}")
 
-# Start project with basic version
+# Get git commit hash for version string
+execute_process(
+    COMMAND git rev-parse --short HEAD
+    OUTPUT_VARIABLE GIT_COMMIT
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET
+)
+
+if(NOT GIT_COMMIT)
+    set(GIT_COMMIT "unknown")
+endif()
+
+# Create version string matching GitHub Actions format
+set(NOSH_VERSION "${NOSH_BASE_VERSION}-${GIT_COMMIT}")
+
+# Start project with base version
 project(nosh VERSION ${NOSH_BASE_VERSION})
-
-# Generate build identifier (timestamp + random string) after project()
-string(TIMESTAMP BUILD_TIMESTAMP "%Y%m%d")
-string(RANDOM LENGTH 6 ALPHABET "0123456789abcdef" BUILD_RANDOM)
-set(BUILD_IDENTIFIER "${BUILD_TIMESTAMP}-${BUILD_RANDOM}")
-
-# Create full version string for the application
-set(NOSH_VERSION "${NOSH_BASE_VERSION}-${BUILD_IDENTIFIER}")
 
 # Configure version header
 configure_file(

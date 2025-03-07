@@ -7,124 +7,104 @@ on:
     branches: [main]
 
 jobs:
-  build-linux:
+  version:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Check for git
+        run: |
+          if ! command -v git &> /dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y git
+          fi
+          
+      - id: get_version
+        name: Get version
+        run: |
+          VERSION="0.1.0"
+          COMMIT=$(git rev-parse --short HEAD || echo "unknown")
+          VERSION_STRING="$VERSION-$COMMIT"
+          echo "version=$VERSION_STRING" >> $GITHUB_OUTPUT
+          
+          # Update version.h.in template
+          sed -i "s/@PROJECT_VERSION@/$VERSION_STRING/g" include/version.h.in
 
+  build-all:
+    needs: version
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [linux, macos, windows]
+        
     steps:
       - uses: actions/checkout@v2
 
-      - name: Install dependencies
+      - name: Check for git
         run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential libreadline-dev cmake pkg-config \
-                                libmbedtls-dev libargon2-dev
-
-      - name: Configure CMake
-        run: cmake -B build -S .
-
-      - name: Build
-        run: cmake --build build
-
-      - name: Install
-        run: sudo cmake --install build
-
-      - name: Check binary exists
-        run: test -f /usr/local/bin/nosh
-
-      - name: Test version command
-        run: |
-          /usr/local/bin/nosh --version || true
-
-  build-macos:
-    runs-on: macos-latest
-
-    steps:
-      - uses: actions/checkout@v2
-
-      - name: Ensure Homebrew is installed
-        run: |
-          if ! command -v brew &> /dev/null; then
-            /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)";
+          if ! command -v git &> /dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y git
           fi
 
-      - name: Install dependencies
+      - name: Install cross-compilation tools
         run: |
-          brew install gcc readline cmake pkg-config mbedtls argon2
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake pkg-config \
+            gcc-mingw-w64 g++-mingw-w64 mingw-w64-tools \
+            clang llvm lld osxcross \
+            libreadline-dev libmbedtls-dev libargon2-dev
 
-      - name: Configure CMake
-        run: cmake -B build -S .
-        env:
-          LDFLAGS: ${{ env.LDFLAGS }}
-          CPPFLAGS: ${{ env.CPPFLAGS }}
-          PKG_CONFIG_PATH: ${{ env.PKG_CONFIG_PATH }}
+      - name: Configure CMake for Linux
+        if: matrix.target == 'linux'
+        run: |
+          cmake -B build -S . \
+          -DVERSION=${{needs.version.outputs.version}}
+
+      - name: Configure CMake for macOS
+        if: matrix.target == 'macos'
+        run: |
+          cmake -B build -S . \
+          -DCMAKE_TOOLCHAIN_FILE=cmake/macos-toolchain.cmake \
+          -DVERSION=${{needs.version.outputs.version}}
+
+      - name: Configure CMake for Windows
+        if: matrix.target == 'windows'
+        run: |
+          cmake -B build -S . \
+          -DCMAKE_TOOLCHAIN_FILE=cmake/windows-toolchain.cmake \
+          -DCMAKE_SYSTEM_NAME=Windows \
+          -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc \
+          -DVERSION=${{needs.version.outputs.version}}
 
       - name: Build
         run: cmake --build build
 
-      - name: Install
-        run: sudo cmake --install build
-
       - name: Check binary exists
-        run: test -f /usr/local/bin/nosh
+        if: matrix.target == 'linux'
+        run: test -f build/nosh
+
+      - name: Check binary exists (Windows)
+        if: matrix.target == 'windows'
+        run: test -f build/nosh.exe
+
+      - name: Check binary exists (macOS)
+        if: matrix.target == 'macos'
+        run: test -f build/nosh
 
       - name: Test version command
+        if: matrix.target == 'linux'
         run: |
-          /usr/local/bin/nosh --version || true
+          ./build/nosh --version || true
 
-  build-windows:
-    runs-on: windows-latest
-
-    steps:
-      - uses: actions/checkout@v2
-
-      - name: Install MSYS2
-        uses: msys2/setup-msys2@v2
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v2
         with:
-          msystem: MINGW64
-          update: true
-          install: >-
-            mingw-w64-x86_64-gcc
-            mingw-w64-x86_64-cmake
-            mingw-w64-x86_64-make
-            mingw-w64-x86_64-pkg-config
-
-      - name: Install vcpkg and dependencies
-        shell: msys2 {0}
-        run: |
-          git clone https://github.com/Microsoft/vcpkg.git
-          cd vcpkg
-          ./bootstrap-vcpkg.sh
-          ./vcpkg install mbedtls:x64-mingw-dynamic
-          ./vcpkg install libargon2:x64-mingw-dynamic
-          ./vcpkg integrate install
-
-      - name: Set environment variables
-        shell: pwsh
-        run: |
-          echo "$env:RUNNER_TEMP\msys64\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
-          $env:Path += ";$PWD\vcpkg\installed\x64-mingw-dynamic\bin"
-          $env:INCLUDE = "$PWD\vcpkg\installed\x64-mingw-dynamic\include;$env:RUNNER_TEMP\msys64\mingw64\include"
-          $env:LIB = "$PWD\vcpkg\installed\x64-mingw-dynamic\lib;$env:RUNNER_TEMP\msys64\mingw64\lib"
-          echo "INCLUDE=$env:INCLUDE" >> $env:GITHUB_ENV
-          echo "LIB=$env:LIB" >> $env:GITHUB_ENV
-
-      - name: Configure CMake
-        shell: msys2 {0}
-        run: |
-          cmake -G "MinGW Makefiles" -B build -S . \
-          -DCMAKE_TOOLCHAIN_FILE="$PWD/vcpkg/scripts/buildsystems/vcpkg.cmake" \
-          -DCMAKE_PREFIX_PATH="$PWD/vcpkg"
-
-      - name: Build
-        shell: msys2 {0}
-        run: cmake --build build
-
-      - name: Check binary exists
-        shell: pwsh
-        run: if (Test-Path build/nosh.exe) { echo "Binary exists" } else { exit 1 }
-
-      - name: Test version command
-        run: ./build/nosh.exe --version || true
-
-      - name: Uninstall
-        run: cmake --build build --target uninstall
+          name: nosh-${{ matrix.target }}
+          path: |
+            build/nosh*
+            build/*.dll
+            build/*.dylib
+            build/*.so
