@@ -66,15 +66,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+      
+      - name: Set up OSXCross
+        run: |
+          git clone https://github.com/tpoechtrager/osxcross
+          cd osxcross
+          wget -nc https://github.com/phracker/MacOSX-SDKs/releases/download/11.3/MacOSX11.3.sdk.tar.xz
+          mv MacOSX11.3.sdk.tar.xz tarballs/
+          UNATTENDED=1 ./build.sh
+          echo "OSXCROSS_ROOT=$PWD" >> $GITHUB_ENV
+          echo "$PWD/target/bin" >> $GITHUB_PATH
+
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake gcc-darwin-x86-64 g++-darwin-x86-64
+          sudo apt-get install -y cmake clang llvm
 
       - name: Configure CMake
         run: |
           cmake -B build -S . \
           -DCMAKE_TOOLCHAIN_FILE=cmake/darwin-toolchain.cmake \
+          -DCMAKE_SYSTEM_NAME=Darwin \
+          -DCMAKE_OSX_ARCHITECTURES=x86_64 \
+          -DCMAKE_C_COMPILER=o64-clang \
+          -DCMAKE_CXX_COMPILER=o64-clang++ \
           -DVERSION=${{needs.version.outputs.version}}
 
       - name: Build
