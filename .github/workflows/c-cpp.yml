@@ -110,17 +110,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+      
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake gcc-mingw-w64 g++-mingw-w64
+          sudo apt-get install -y cmake gcc-mingw-w64 g++-mingw-w64 make mingw-w64-tools
 
       - name: Configure CMake
         run: |
           cmake -B build -S . \
           -DCMAKE_TOOLCHAIN_FILE=cmake/windows-toolchain.cmake \
           -DCMAKE_SYSTEM_NAME=Windows \
-          -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc \
           -DVERSION=${{needs.version.outputs.version}}
 
       - name: Build
