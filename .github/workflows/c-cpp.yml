@@ -77,41 +77,50 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Install dependencies
-        run: |
-          choco install -y mingw-w64 cmake pkgconfiglite
+      - name: Install MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-make
+            mingw-w64-x86_64-pkg-config
 
       - name: Install vcpkg and dependencies
+        shell: msys2 {0}
         run: |
           git clone https://github.com/Microsoft/vcpkg.git
           cd vcpkg
-          .\bootstrap-vcpkg.bat
-          .\vcpkg install mbedtls:x64-mingw-dynamic
-          .\vcpkg install libargon2:x64-mingw-dynamic
-          .\vcpkg integrate install
+          ./bootstrap-vcpkg.sh
+          ./vcpkg install mbedtls:x64-mingw-dynamic
+          ./vcpkg install libargon2:x64-mingw-dynamic
+          ./vcpkg integrate install
 
       - name: Set environment variables
+        shell: pwsh
         run: |
-          echo "C:\msys64\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+          echo "$env:RUNNER_TEMP\msys64\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
           $env:Path += ";$PWD\vcpkg\installed\x64-mingw-dynamic\bin"
-          $env:INCLUDE = "$PWD\vcpkg\installed\x64-mingw-dynamic\include;C:\msys64\mingw64\include"
-          $env:LIB = "$PWD\vcpkg\installed\x64-mingw-dynamic\lib;C:\msys64\mingw64\lib"
-          echo "INCLUDE=$env:INCLUDE" >> $GITHUB_ENV
-          echo "LIB=$env:LIB" >> $GITHUB_ENV
+          $env:INCLUDE = "$PWD\vcpkg\installed\x64-mingw-dynamic\include;$env:RUNNER_TEMP\msys64\mingw64\include"
+          $env:LIB = "$PWD\vcpkg\installed\x64-mingw-dynamic\lib;$env:RUNNER_TEMP\msys64\mingw64\lib"
+          echo "INCLUDE=$env:INCLUDE" >> $env:GITHUB_ENV
+          echo "LIB=$env:LIB" >> $env:GITHUB_ENV
 
       - name: Configure CMake
+        shell: msys2 {0}
         run: |
-          cmake -G "MinGW Makefiles" -B build -S . `
-          -DCMAKE_TOOLCHAIN_FILE="$PWD/vcpkg/scripts/buildsystems/vcpkg.cmake" `
+          cmake -G "MinGW Makefiles" -B build -S . \
+          -DCMAKE_TOOLCHAIN_FILE="$PWD/vcpkg/scripts/buildsystems/vcpkg.cmake" \
           -DCMAKE_PREFIX_PATH="$PWD/vcpkg"
-        env:
-          INCLUDE: ${{ env.INCLUDE }}
-          LIB: ${{ env.LIB }}
 
       - name: Build
+        shell: msys2 {0}
         run: cmake --build build
 
       - name: Check binary exists
+        shell: pwsh
         run: if (Test-Path build/nosh.exe) { echo "Binary exists" } else { exit 1 }
 
       - name: Test version command
