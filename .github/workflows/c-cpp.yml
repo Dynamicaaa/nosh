@@ -129,18 +129,31 @@ jobs:
           cmake .. \
             -DCMAKE_INSTALL_PREFIX=/usr/x86_64-w64-mingw32 \
             -DCMAKE_TOOLCHAIN_FILE=../../cmake/windows-toolchain.cmake \
+            -DCMAKE_SYSTEM_NAME=Windows \
+            -DUSE_SHARED_MBEDTLS_LIBRARY=ON \
             -DENABLE_PROGRAMS=OFF \
             -DENABLE_TESTING=OFF
           make -j$(nproc)
           sudo make install
           cd ../..
 
-      - name: Configure CMake
+      - name: Install MinGW Argon2
+        run: |
+          git clone https://github.com/P-H-C/phc-winner-argon2.git
+          cd phc-winner-argon2
+          make SYSTEM=MINGW CC=x86_64-w64-mingw32-gcc
+          sudo cp include/argon2.h /usr/x86_64-w64-mingw32/include/
+          sudo cp libargon2.dll /usr/x86_64-w64-mingw32/lib/
+          sudo cp libargon2.a /usr/x86_64-w64-mingw32/lib/
+          cd ..
+
+      - name: Configure CMake 
         run: |
           cmake -B build -S . \
           -DCMAKE_TOOLCHAIN_FILE=cmake/windows-toolchain.cmake \
           -DCMAKE_SYSTEM_NAME=Windows \
           -DCMAKE_PREFIX_PATH=/usr/x86_64-w64-mingw32 \
+          -DCMAKE_BUILD_TYPE=Release \
           -DVERSION=${{needs.version.outputs.version}}
 
       - name: Build
@@ -153,5 +166,5 @@ jobs:
         with:
           name: nosh-windows
           path: |
-            build/nosh*
+            build/nosh.exe
             build/*.dll
