@@ -22,9 +22,6 @@
 // This flag ensures we only clear the screen on actual exit, not on errors
 static int actually_exiting = 0;
 
-// Define the version string here for easy updates
-#define NOSH_VERSION "0.1.0"
-
 void cleanup_on_exit(void) {
     // Clear terminal scrollback buffer only if actually exiting and in XNU mode
     if (actually_exiting && is_xnu_mode_enabled()) {
@@ -38,14 +35,13 @@ void cleanup_on_exit(void) {
 
 // Print version information and exit
 void print_version(void) {
-    // Get current year dynamically
-    time_t now = time(NULL);
-    struct tm *tm_info = localtime(&now);
-    int current_year = tm_info->tm_year + 1900; // tm_year is years since 1900
-
+    time_t t = time(NULL);
+    struct tm *tm = localtime(&t);
+    int current_year = tm->tm_year + 1900;
+    
     printf("nosh version %s\n", NOSH_VERSION);
     printf("A secure, customizable shell with privacy features\n");
-    printf("Copyright (c) %d\n", current_year);
+    printf("Copyright (c) %d Dynamicaaa\n", current_year);
 }
 
 int main(int argc, char *argv[]) {

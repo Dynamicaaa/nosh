@@ -1,5 +1,36 @@
 cmake_minimum_required(VERSION 3.10)
-project(nosh)
+
+# Version components
+set(NOSH_VERSION_MAJOR 0)
+set(NOSH_VERSION_MINOR 1)
+set(NOSH_VERSION_PATCH 0)
+
+# Create basic version string for project() command
+set(NOSH_BASE_VERSION "${NOSH_VERSION_MAJOR}.${NOSH_VERSION_MINOR}.${NOSH_VERSION_PATCH}")
+
+# Start project with basic version
+project(nosh VERSION ${NOSH_BASE_VERSION})
+
+# Generate build identifier (timestamp + random string) after project()
+string(TIMESTAMP BUILD_TIMESTAMP "%Y%m%d")
+string(RANDOM LENGTH 6 ALPHABET "0123456789abcdef" BUILD_RANDOM)
+set(BUILD_IDENTIFIER "${BUILD_TIMESTAMP}-${BUILD_RANDOM}")
+
+# Create full version string for the application
+set(NOSH_VERSION "${NOSH_BASE_VERSION}-${BUILD_IDENTIFIER}")
+
+# Configure version header
+configure_file(
+    "${PROJECT_SOURCE_DIR}/include/version.h.in"
+    "${PROJECT_BINARY_DIR}/include/version.h"
+    @ONLY
+)
+
+# Include directories for the build
+include_directories(
+    ${PROJECT_SOURCE_DIR}/include
+    ${PROJECT_BINARY_DIR}/include
+)
 
 set(CMAKE_C_STANDARD 99)
 

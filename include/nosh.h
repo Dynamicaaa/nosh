@@ -1,6 +1,8 @@
 #ifndef NOSH_H
 #define NOSH_H
 
+#include "version.h"  // Add this line at the top
+
 // Platform-specific includes
 #ifdef _WIN32
     #include <windows.h>
