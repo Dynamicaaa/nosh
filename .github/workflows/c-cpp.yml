@@ -72,6 +72,7 @@ jobs:
           git clone https://github.com/tpoechtrager/osxcross
           cd osxcross
           wget -nc https://github.com/phracker/MacOSX-SDKs/releases/download/11.3/MacOSX11.3.sdk.tar.xz
+          mkdir -p tarballs
           mv MacOSX11.3.sdk.tar.xz tarballs/
           UNATTENDED=1 ./build.sh
           echo "OSXCROSS_ROOT=$PWD" >> $GITHUB_ENV
@@ -80,16 +81,19 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake clang llvm
+          sudo apt-get install -y cmake make clang llvm
 
       - name: Configure CMake
+        env:
+          OSXCROSS_ROOT: ${{ env.OSXCROSS_ROOT }}
         run: |
           cmake -B build -S . \
           -DCMAKE_TOOLCHAIN_FILE=cmake/darwin-toolchain.cmake \
           -DCMAKE_SYSTEM_NAME=Darwin \
           -DCMAKE_OSX_ARCHITECTURES=x86_64 \
-          -DCMAKE_C_COMPILER=o64-clang \
-          -DCMAKE_CXX_COMPILER=o64-clang++ \
+          -DCMAKE_C_COMPILER=$OSXCROSS_ROOT/target/bin/o64-clang \
+          -DCMAKE_CXX_COMPILER=$OSXCROSS_ROOT/target/bin/o64-clang++ \
+          -DCMAKE_OSX_SYSROOT=$OSXCROSS_ROOT/target/SDK/MacOSX11.3.sdk \
           -DVERSION=${{needs.version.outputs.version}}
 
       - name: Build
@@ -116,11 +120,27 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cmake gcc-mingw-w64 g++-mingw-w64 make mingw-w64-tools
 
+      - name: Install MinGW mbedtls
+        run: |
+          wget https://github.com/Mbed-TLS/mbedtls/archive/refs/tags/v3.5.2.tar.gz
+          tar xf v3.5.2.tar.gz
+          cd mbedtls-3.5.2
+          mkdir build && cd build
+          cmake .. \
+            -DCMAKE_INSTALL_PREFIX=/usr/x86_64-w64-mingw32 \
+            -DCMAKE_TOOLCHAIN_FILE=../../cmake/windows-toolchain.cmake \
+            -DENABLE_PROGRAMS=OFF \
+            -DENABLE_TESTING=OFF
+          make -j$(nproc)
+          sudo make install
+          cd ../..
+
       - name: Configure CMake
         run: |
           cmake -B build -S . \
           -DCMAKE_TOOLCHAIN_FILE=cmake/windows-toolchain.cmake \
           -DCMAKE_SYSTEM_NAME=Windows \
+          -DCMAKE_PREFIX_PATH=/usr/x86_64-w64-mingw32 \
           -DVERSION=${{needs.version.outputs.version}}
 
       - name: Build
