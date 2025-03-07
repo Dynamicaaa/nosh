@@ -99,8 +99,7 @@ jobs:
         run: |
           ./build/nosh --version || true
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: nosh-${{ matrix.target }}
           path: |
