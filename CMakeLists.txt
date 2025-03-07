@@ -57,6 +57,19 @@ elseif(APPLE)
 else()
     find_package(OpenSSL REQUIRED)
     target_link_libraries(nosh PRIVATE OpenSSL::Crypto)
+
+    # Linux dependencies
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(MBEDTLS REQUIRED mbedtls)
+    include_directories(${MBEDTLS_INCLUDE_DIRS})
+    link_directories(${MBEDTLS_LIBRARY_DIRS})
+    
+    target_link_libraries(nosh PRIVATE
+        mbedtls
+        mbedcrypto
+        mbedx509
+        argon2
+    )
 endif()
 
 # Find readline dependency

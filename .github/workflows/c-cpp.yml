@@ -16,7 +16,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential libreadline-dev libsodium-dev cmake pkg-config \
+          sudo apt-get install -y build-essential libreadline-dev cmake pkg-config \
                                 libmbedtls-dev libargon2-dev
 
       - name: Configure CMake
@@ -52,13 +52,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          brew install gcc readline libsodium cmake pkg-config mbedtls argon2
-
-      - name: Set Sodium environment variables
-        run: |
-          echo 'LDFLAGS="-L/usr/local/opt/libsodium/lib"' >> $GITHUB_ENV
-          echo 'CPPFLAGS="-I/usr/local/opt/libsodium/include"' >> $GITHUB_ENV
-          echo 'PKG_CONFIG_PATH="/usr/local/opt/libsodium/lib/pkgconfig"' >> $GITHUB_ENV
+          brew install gcc readline cmake pkg-config mbedtls argon2
 
       - name: Configure CMake
         run: cmake -B build -S .
