@@ -16,15 +16,17 @@ add_executable(nosh ${SOURCES})
 if(WIN32)
     target_link_libraries(nosh PRIVATE crypt32)
     
-    # Use vcpkg's find_package
+    # Use vcpkg's find_package for mbedtls
     find_package(mbedtls CONFIG REQUIRED)
-    find_package(argon2 CONFIG REQUIRED)
     
+    # Direct path to Argon2 for Windows
+    set(ARGON2_ROOT "${CMAKE_PREFIX_PATH}/installed/x64-windows")
+    include_directories("${ARGON2_ROOT}/include")
     target_link_libraries(nosh PRIVATE 
         MbedTLS::mbedtls
         MbedTLS::mbedcrypto 
         MbedTLS::mbedx509
-        argon2::argon2)
+        "${ARGON2_ROOT}/lib/argon2.lib")
     
 elseif(APPLE)
     find_library(SECURITY_FRAMEWORK Security)

@@ -99,7 +99,7 @@ jobs:
           echo "LIB=$env:LIB" >> $GITHUB_ENV
 
       - name: Configure CMake
-        run: cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE="$PWD/vcpkg/scripts/buildsystems/vcpkg.cmake"
+        run: cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE="$PWD/vcpkg/scripts/buildsystems/vcpkg.cmake" -DCMAKE_PREFIX_PATH="$PWD/vcpkg"
         env:
           INCLUDE: ${{ env.INCLUDE }}
           LIB: ${{ env.LIB }}
