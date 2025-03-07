@@ -89,28 +89,29 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Ensure Chocolatey is installed
-        run: |
-          if (-not (Get-Command choco -ErrorAction SilentlyContinue)) {
-            Set-ExecutionPolicy Bypass -Scope Process -Force;
-            [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072;
-            iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'));
-          }
-
       - name: Install dependencies
         run: |
-          choco install -y mingw make cmake pkgconfiglite mbedtls libargon2
+          choco install -y mingw make cmake pkgconfiglite
+
+      - name: Install vcpkg and dependencies
+        run: |
+          git clone https://github.com/Microsoft/vcpkg.git
+          cd vcpkg
+          .\bootstrap-vcpkg.bat
+          .\vcpkg install mbedtls:x64-windows
+          .\vcpkg install libargon2:x64-windows
+          .\vcpkg integrate install
 
       - name: Set environment variables
         run: |
-          $env:Path += ";C:\ProgramData\chocolatey\lib\mbedtls\bin;C:\ProgramData\chocolatey\lib\libargon2\bin"
-          $env:INCLUDE = "C:\ProgramData\chocolatey\lib\mbedtls\include;C:\ProgramData\chocolatey\lib\libargon2\include"
-          $env:LIB = "C:\ProgramData\chocolatey\lib\mbedtls\lib;C:\ProgramData\chocolatey\lib\libargon2\lib"
+          $env:Path += ";$PWD\vcpkg\installed\x64-windows\bin"
+          $env:INCLUDE = "$PWD\vcpkg\installed\x64-windows\include"
+          $env:LIB = "$PWD\vcpkg\installed\x64-windows\lib"
           echo "INCLUDE=$env:INCLUDE" >> $GITHUB_ENV
           echo "LIB=$env:LIB" >> $GITHUB_ENV
 
       - name: Configure CMake
-        run: cmake -B build -S .
+        run: cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE="$PWD/vcpkg/scripts/buildsystems/vcpkg.cmake"
         env:
           INCLUDE: ${{ env.INCLUDE }}
           LIB: ${{ env.LIB }}

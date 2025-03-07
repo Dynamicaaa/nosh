@@ -15,21 +15,30 @@ add_executable(nosh ${SOURCES})
 # Platform-specific settings
 if(WIN32)
     target_link_libraries(nosh PRIVATE crypt32)
-    set(MBEDTLS_ROOT "C:/Program Files/mbedtls")
-    set(ARGON2_ROOT "C:/ProgramData/chocolatey/lib/libargon2")
     
-    include_directories(
-        "${MBEDTLS_ROOT}/include"
-        "${ARGON2_ROOT}/include"
-    )
+    # Use vcpkg's find_package
+    find_package(mbedtls CONFIG REQUIRED)
+    find_package(argon2 CONFIG REQUIRED)
     
-    link_directories(
-        "${MBEDTLS_ROOT}/lib"
-        "${ARGON2_ROOT}/lib"
-    )
+    target_link_libraries(nosh PRIVATE 
+        MbedTLS::mbedtls
+        MbedTLS::mbedcrypto 
+        MbedTLS::mbedx509
+        argon2::argon2)
+    
 elseif(APPLE)
     find_library(SECURITY_FRAMEWORK Security)
     find_library(CORE_FOUNDATION CoreFoundation)
+    
+    # Use brew-installed mbedtls on macOS
+    execute_process(
+        COMMAND brew --prefix mbedtls
+        OUTPUT_VARIABLE MBEDTLS_PREFIX
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    
+    # Add MbedTLS include directory
+    include_directories("${MBEDTLS_PREFIX}/include")
     
     target_link_libraries(nosh PRIVATE
         ${SECURITY_FRAMEWORK}
@@ -37,6 +46,9 @@ elseif(APPLE)
         "-framework CoreFoundation"
         "-framework Security"
         "-framework CoreServices"
+        "${MBEDTLS_PREFIX}/lib/libmbedtls.dylib"
+        "${MBEDTLS_PREFIX}/lib/libmbedcrypto.dylib"
+        "${MBEDTLS_PREFIX}/lib/libmbedx509.dylib"
         c
     )
     
@@ -51,10 +63,6 @@ endif()
 find_package(Curses REQUIRED)
 find_library(READLINE_LIBRARY readline)
 target_link_libraries(nosh PRIVATE ${CURSES_LIBRARIES} ${READLINE_LIBRARY})
-
-# Find MbedTLS dependency
-find_package(MbedTLS REQUIRED)
-target_link_libraries(nosh PRIVATE MbedTLS::mbedtls MbedTLS::mbedcrypto MbedTLS::mbedx509)
 
 # Find Argon2 dependency
 find_package(PkgConfig REQUIRED)
