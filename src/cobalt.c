@@ -1,54 +1,80 @@
 #include "cobalt.h"
-#include <sodium.h>
-#include <string.h>
 
-#define SALT_SIZE 16
-#define IV_SIZE 12
-#define KEY_SIZE 32
-#define TAG_SIZE 16
+#ifdef _WIN32
+    #include <windows.h>
+    #include <wincrypt.h>
+    #pragma comment(lib, "crypt32.lib")
+#elif defined(__APPLE__)
+    #include <Security/Security.h>
+#else
+    #include <sys/random.h>
+#endif
 
-// Key derivation function using libsodium
-int cobalt_derive_key(const char* password, const unsigned char* salt, unsigned char* key, size_t key_len) {
-    if (crypto_pwhash(key, key_len, password, strlen(password), salt,
-                      crypto_pwhash_OPSLIMIT_INTERACTIVE, crypto_pwhash_MEMLIMIT_INTERACTIVE,
-                      crypto_pwhash_ALG_DEFAULT) != 0) {
-        return 0; // Error
+#include <mbedtls/gcm.h>
+#include <mbedtls/entropy.h>
+#include <mbedtls/ctr_drbg.h>
+#include <argon2.h>
+
+int cobalt_derive_key(const char* password, const unsigned char *salt, unsigned char* key) {
+    // Use Argon2 for key derivation
+    if (argon2id_hash_raw(2, 1 << 16, 1, password, strlen(password), salt, COBALT_SALT_SIZE, key, COBALT_KEY_SIZE) != ARGON2_OK) {
+        return 0;
     }
-    return 1; // Success
+    return 1;
 }
 
-// Encryption function using libsodium
-int cobalt_encrypt(const unsigned char* plaintext, size_t plaintext_len, const unsigned char* key, unsigned char* ciphertext, unsigned char* iv, unsigned char* tag) {
-    randombytes_buf(iv, IV_SIZE); // Generate random IV
+int cobalt_encrypt(const unsigned char *plaintext, size_t plaintext_len,
+                  const unsigned char *key, unsigned char *ciphertext,
+                  unsigned char *iv, unsigned char *tag) {
+    mbedtls_gcm_context gcm;
+    mbedtls_entropy_context entropy;
+    mbedtls_ctr_drbg_context ctr_drbg;
+    const char *pers = "aes_gcm";
 
-    unsigned long long ciphertext_len;
-    if (crypto_aead_aes256gcm_encrypt(ciphertext, &ciphertext_len,
-                                      plaintext, plaintext_len,
-                                      NULL, 0, // No additional data
-                                      NULL, iv, key) != 0) {
-        return 0; // Error
+    mbedtls_gcm_init(&gcm);
+    mbedtls_entropy_init(&entropy);
+    mbedtls_ctr_drbg_init(&ctr_drbg);
+
+    if (mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy, (const unsigned char *)pers, strlen(pers)) != 0) {
+        return 0;
     }
 
-    memcpy(tag, ciphertext + ciphertext_len - TAG_SIZE, TAG_SIZE); // Extract tag
-    return 1; // Success
+    if (mbedtls_gcm_setkey(&gcm, MBEDTLS_CIPHER_ID_AES, key, 256) != 0) { // Use 256-bit key
+        return 0;
+    }
+
+    // Generate random IV
+    if (mbedtls_ctr_drbg_random(&ctr_drbg, iv, COBALT_IV_SIZE) != 0) {
+        return 0;
+    }
+
+    if (mbedtls_gcm_crypt_and_tag(&gcm, MBEDTLS_GCM_ENCRYPT, plaintext_len, iv, COBALT_IV_SIZE, NULL, 0, plaintext, ciphertext, COBALT_TAG_SIZE, tag) != 0) {
+        return 0;
+    }
+
+    mbedtls_gcm_free(&gcm);
+    mbedtls_entropy_free(&entropy);
+    mbedtls_ctr_drbg_free(&ctr_drbg);
+
+    return 1;
 }
 
-// Decryption function using libsodium
-int cobalt_decrypt(const unsigned char* ciphertext, size_t ciphertext_len, const unsigned char* tag, const unsigned char* key, const unsigned char* iv, unsigned char* plaintext) {
-    unsigned long long plaintext_len;
-    unsigned char full_ciphertext[ciphertext_len + TAG_SIZE];
+int cobalt_decrypt(const unsigned char *ciphertext, size_t ciphertext_len,
+                  const unsigned char *tag, const unsigned char *key,
+                  const unsigned char *iv, unsigned char *plaintext) {
+    mbedtls_gcm_context gcm;
 
-    // Combine ciphertext and tag
-    memcpy(full_ciphertext, ciphertext, ciphertext_len);
-    memcpy(full_ciphertext + ciphertext_len, tag, TAG_SIZE);
+    mbedtls_gcm_init(&gcm);
 
-    if (crypto_aead_aes256gcm_decrypt(plaintext, &plaintext_len,
-                                      NULL, // No additional data
-                                      full_ciphertext, ciphertext_len + TAG_SIZE,
-                                      NULL, 0, // No additional data
-                                      iv, key) != 0) {
-        return 0; // Error
+    if (mbedtls_gcm_setkey(&gcm, MBEDTLS_CIPHER_ID_AES, key, 256) != 0) { // Use 256-bit key
+        return 0;
     }
 
-    return 1; // Success
+    if (mbedtls_gcm_auth_decrypt(&gcm, ciphertext_len, iv, COBALT_IV_SIZE, NULL, 0, tag, COBALT_TAG_SIZE, ciphertext, plaintext) != 0) {
+        return 0;
+    }
+
+    mbedtls_gcm_free(&gcm);
+
+    return 1;
 }

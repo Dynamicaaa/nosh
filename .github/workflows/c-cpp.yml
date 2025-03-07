@@ -16,7 +16,8 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential libreadline-dev libsodium-dev cmake pkg-config
+          sudo apt-get install -y build-essential libreadline-dev libsodium-dev cmake pkg-config \
+                                libmbedtls-dev libargon2-dev
 
       - name: Configure CMake
         run: cmake -B build -S .
@@ -51,7 +52,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          brew install gcc readline libsodium cmake pkg-config
+          brew install gcc readline libsodium cmake pkg-config mbedtls argon2
 
       - name: Set Sodium environment variables
         run: |
@@ -98,21 +99,13 @@ jobs:
 
       - name: Install dependencies
         run: |
-          choco install -y mingw make cmake pkgconfiglite
+          choco install -y mingw make cmake pkgconfiglite mbedtls libargon2
 
-      - name: Install vcpkg and libsodium
+      - name: Set environment variables
         run: |
-          git clone https://github.com/Microsoft/vcpkg.git
-          cd vcpkg
-          .\bootstrap-vcpkg.bat
-          .\vcpkg install libsodium
-          .\vcpkg integrate install
-
-      - name: Set Sodium environment variables
-        run: |
-          $env:Path += ";$PWD\vcpkg\installed\x64-windows\bin"
-          $env:INCLUDE = "$PWD\vcpkg\installed\x64-windows\include"
-          $env:LIB = "$PWD\vcpkg\installed\x64-windows\lib"
+          $env:Path += ";C:\ProgramData\chocolatey\lib\mbedtls\bin;C:\ProgramData\chocolatey\lib\libargon2\bin"
+          $env:INCLUDE = "C:\ProgramData\chocolatey\lib\mbedtls\include;C:\ProgramData\chocolatey\lib\libargon2\include"
+          $env:LIB = "C:\ProgramData\chocolatey\lib\mbedtls\lib;C:\ProgramData\chocolatey\lib\libargon2\lib"
           echo "INCLUDE=$env:INCLUDE" >> $GITHUB_ENV
           echo "LIB=$env:LIB" >> $GITHUB_ENV
 

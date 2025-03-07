@@ -80,7 +80,7 @@ void initialize_password_manager(void) {
 
         // Generate a random salt
         unsigned char salt[SALT_SIZE];
-        if (!cobalt_derive_key(master_password, salt, master_key, KEY_SIZE)) {
+        if (!cobalt_derive_key(master_password, salt, master_key)) {
             printf("Key derivation failed! Password manager not initialized.\n");
             return;
         }
@@ -126,7 +126,7 @@ int unlock_password_manager(void) {
     char* master_password = get_password("Enter master password: ");
 
     // Derive the key
-    if (!cobalt_derive_key(master_password, salt, master_key, KEY_SIZE)) {
+    if (!cobalt_derive_key(master_password, salt, master_key)) {
         printf("Key derivation failed!\n");
         return 0;
     }
