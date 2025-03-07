@@ -79,27 +79,31 @@ jobs:
 
       - name: Install dependencies
         run: |
-          choco install -y mingw make cmake pkgconfiglite
+          choco install -y mingw-w64 cmake pkgconfiglite
 
       - name: Install vcpkg and dependencies
         run: |
           git clone https://github.com/Microsoft/vcpkg.git
           cd vcpkg
           .\bootstrap-vcpkg.bat
-          .\vcpkg install mbedtls:x64-windows
-          .\vcpkg install libargon2:x64-windows
+          .\vcpkg install mbedtls:x64-mingw-dynamic
+          .\vcpkg install libargon2:x64-mingw-dynamic
           .\vcpkg integrate install
 
       - name: Set environment variables
         run: |
-          $env:Path += ";$PWD\vcpkg\installed\x64-windows\bin"
-          $env:INCLUDE = "$PWD\vcpkg\installed\x64-windows\include"
-          $env:LIB = "$PWD\vcpkg\installed\x64-windows\lib"
+          echo "C:\msys64\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+          $env:Path += ";$PWD\vcpkg\installed\x64-mingw-dynamic\bin"
+          $env:INCLUDE = "$PWD\vcpkg\installed\x64-mingw-dynamic\include;C:\msys64\mingw64\include"
+          $env:LIB = "$PWD\vcpkg\installed\x64-mingw-dynamic\lib;C:\msys64\mingw64\lib"
           echo "INCLUDE=$env:INCLUDE" >> $GITHUB_ENV
           echo "LIB=$env:LIB" >> $GITHUB_ENV
 
       - name: Configure CMake
-        run: cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE="$PWD/vcpkg/scripts/buildsystems/vcpkg.cmake" -DCMAKE_PREFIX_PATH="$PWD/vcpkg"
+        run: |
+          cmake -G "MinGW Makefiles" -B build -S . `
+          -DCMAKE_TOOLCHAIN_FILE="$PWD/vcpkg/scripts/buildsystems/vcpkg.cmake" `
+          -DCMAKE_PREFIX_PATH="$PWD/vcpkg"
         env:
           INCLUDE: ${{ env.INCLUDE }}
           LIB: ${{ env.LIB }}
@@ -108,10 +112,10 @@ jobs:
         run: cmake --build build
 
       - name: Check binary exists
-        run: if exist build\nosh.exe (echo Binary exists) else (exit 1)
+        run: if (Test-Path build/nosh.exe) { echo "Binary exists" } else { exit 1 }
 
       - name: Test version command
-        run: .\build\nosh.exe --version || true
+        run: ./build/nosh.exe --version || true
 
       - name: Uninstall
         run: cmake --build build --target uninstall
