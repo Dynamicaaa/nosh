@@ -28,74 +28,62 @@ jobs:
           COMMIT=$(git rev-parse --short HEAD || echo "unknown")
           VERSION_STRING="$VERSION-$COMMIT"
           echo "version=$VERSION_STRING" >> $GITHUB_OUTPUT
-          
-          # Update version.h.in template
-          sed -i "s/@PROJECT_VERSION@/$VERSION_STRING/g" include/version.h.in
 
-  build-all:
+  build:
     needs: version
-    runs-on: ubuntu-latest
     strategy:
       matrix:
-        target: [linux, macos, windows]
+        include:
+          - target: linux
+            os: ubuntu-latest
+            packages: build-essential cmake pkg-config libreadline-dev libmbedtls-dev libargon2-dev
+          - target: macos
+            os: macos-latest
+            packages: readline mbedtls argon2
+          - target: windows
+            os: windows-latest
+            packages: cmake
+
+    runs-on: ${{ matrix.os }}
         
     steps:
       - uses: actions/checkout@v3
 
-      - name: Check for git
-        run: |
-          if ! command -v git &> /dev/null; then
-            sudo apt-get update
-            sudo apt-get install -y git
-          fi
-
-      - name: Install cross-compilation tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential cmake pkg-config \
-            gcc-mingw-w64 g++-mingw-w64 mingw-w64-tools \
-            clang llvm lld osxcross \
-            libreadline-dev libmbedtls-dev libargon2-dev
-
-      - name: Configure CMake for Linux
+      - name: Install dependencies (Linux)
         if: matrix.target == 'linux'
         run: |
-          cmake -B build -S . \
-          -DVERSION=${{needs.version.outputs.version}}
+          sudo apt-get update
+          sudo apt-get install -y ${{ matrix.packages }}
 
-      - name: Configure CMake for macOS
+      - name: Install dependencies (macOS)
         if: matrix.target == 'macos'
         run: |
-          cmake -B build -S . \
-          -DCMAKE_TOOLCHAIN_FILE=cmake/macos-toolchain.cmake \
-          -DVERSION=${{needs.version.outputs.version}}
+          brew install ${{ matrix.packages }}
 
-      - name: Configure CMake for Windows
+      - name: Install dependencies (Windows)
         if: matrix.target == 'windows'
+        uses: microsoft/setup-msbuild@v1
+
+      - name: Configure CMake
         run: |
           cmake -B build -S . \
-          -DCMAKE_TOOLCHAIN_FILE=cmake/windows-toolchain.cmake \
-          -DCMAKE_SYSTEM_NAME=Windows \
-          -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc \
           -DVERSION=${{needs.version.outputs.version}}
 
       - name: Build
         run: cmake --build build
 
       - name: Check binary exists
-        if: matrix.target == 'linux'
-        run: test -f build/nosh
-
-      - name: Check binary exists (Windows)
-        if: matrix.target == 'windows'
-        run: test -f build/nosh.exe
-
-      - name: Check binary exists (macOS)
-        if: matrix.target == 'macos'
-        run: test -f build/nosh
+        shell: bash
+        run: |
+          if [[ "${{ matrix.target }}" == "windows" ]]; then
+            test -f build/nosh.exe
+          else
+            test -f build/nosh
+          fi
 
       - name: Test version command
-        if: matrix.target == 'linux'
+        if: matrix.target != 'windows'
+        shell: bash
         run: |
           ./build/nosh --version || true
 
