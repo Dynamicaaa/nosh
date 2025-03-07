@@ -88,7 +88,6 @@ jobs:
           .\bootstrap-vcpkg.bat
           .\vcpkg install mbedtls:x64-windows
           .\vcpkg install libargon2:x64-windows
-          .\vcpkg install pdcurses:x64-windows
           .\vcpkg integrate install
 
       - name: Set environment variables

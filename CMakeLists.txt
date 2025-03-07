@@ -1,15 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 project(nosh)
 
-if(WIN32)
-    # Windows doesn't use curses, use Windows Console API instead
-    add_definitions(-DWIN32_CONSOLE)
-else()
-    # Find Curses on Unix systems
-    find_package(Curses REQUIRED)
-    include_directories(${CURSES_INCLUDE_DIR})
-endif()
-
 set(CMAKE_C_STANDARD 99)
 
 # Include directories
@@ -91,6 +82,11 @@ else()
         mbedx509
         argon2
     )
+    
+    # Use regular curses for Unix-like systems
+    find_package(Curses REQUIRED)
+    include_directories(${CURSES_INCLUDE_DIR})
+    target_link_libraries(nosh PRIVATE ${CURSES_LIBRARIES})
 endif()
 
 # Find readline dependency
@@ -114,23 +110,6 @@ if(APPLE)
     target_link_libraries(nosh PRIVATE "${ARGON2_PREFIX}/lib/libargon2.dylib")
 else()
     target_link_libraries(nosh PRIVATE ${ARGON2_LIBRARIES})
-endif()
-
-# Link libraries
-if(WIN32)
-    target_link_libraries(nosh PRIVATE 
-        crypt32
-        argon2
-        mbedtls
-        mbedcrypto
-        mbedx509)
-else()
-    target_link_libraries(nosh PRIVATE 
-        ${CURSES_LIBRARIES}
-        argon2
-        mbedtls
-        mbedcrypto
-        mbedx509)
 endif()
 
 # Install target
