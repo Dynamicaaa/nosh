@@ -29,51 +29,16 @@ jobs:
           VERSION_STRING="$VERSION-$COMMIT"
           echo "version=$VERSION_STRING" >> $GITHUB_OUTPUT
 
-  build:
+  build-linux:
     needs: version
-    strategy:
-      matrix:
-        include:
-          - target: linux
-            os: ubuntu-latest
-            packages: build-essential cmake pkg-config libreadline-dev libmbedtls-dev libargon2-dev
-          - target: macos
-            os: macos-latest
-            packages: readline mbedtls argon2
-          - target: windows
-            os: windows-latest
-            packages: cmake
-
-    runs-on: ${{ matrix.os }}
-        
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-
-      - name: Check for git
-        run: |
-          if ! command -v git &> /dev/null; then
-            if [ "${{ matrix.target }}" == "linux" ]; then
-              sudo apt-get update
-              sudo apt-get install -y git
-            elif [ "${{ matrix.target }}" == "macos" ]; then
-              brew install git
-            fi
-          fi
-
-      - name: Install dependencies (Linux)
-        if: matrix.target == 'linux'
+      - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ${{ matrix.packages }}
-
-      - name: Install dependencies (macOS)
-        if: matrix.target == 'macos'
-        run: |
-          brew install ${{ matrix.packages }}
-
-      - name: Install dependencies (Windows)
-        if: matrix.target == 'windows'
-        uses: microsoft/setup-msbuild@v1
+          sudo apt-get install -y build-essential cmake pkg-config \
+            libreadline-dev libmbedtls-dev libargon2-dev
 
       - name: Configure CMake
         run: |
@@ -83,26 +48,75 @@ jobs:
       - name: Build
         run: cmake --build build
 
-      - name: Check binary exists
-        shell: bash
-        run: |
-          if [[ "${{ matrix.target }}" == "windows" ]]; then
-            test -f build/nosh.exe
-          else
-            test -f build/nosh
-          fi
+      - name: Check binary
+        run: test -f build/nosh
 
-      - name: Test version command
-        if: matrix.target != 'windows'
-        shell: bash
-        run: |
-          ./build/nosh --version || true
+      - name: Test version
+        run: ./build/nosh --version || true
 
       - uses: actions/upload-artifact@v4
         with:
-          name: nosh-${{ matrix.target }}
+          name: nosh-linux
+          path: |
+            build/nosh*
+            build/*.so
+
+  build-macos:
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake gcc-darwin-x86-64 g++-darwin-x86-64
+
+      - name: Configure CMake
+        run: |
+          cmake -B build -S . \
+          -DCMAKE_TOOLCHAIN_FILE=cmake/darwin-toolchain.cmake \
+          -DVERSION=${{needs.version.outputs.version}}
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Check binary
+        run: test -f build/nosh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nosh-macos
+          path: |
+            build/nosh*
+            build/*.dylib
+
+  build-windows:
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake gcc-mingw-w64 g++-mingw-w64
+
+      - name: Configure CMake
+        run: |
+          cmake -B build -S . \
+          -DCMAKE_TOOLCHAIN_FILE=cmake/windows-toolchain.cmake \
+          -DCMAKE_SYSTEM_NAME=Windows \
+          -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc \
+          -DVERSION=${{needs.version.outputs.version}}
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Check binary
+        run: test -f build/nosh.exe
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nosh-windows
           path: |
             build/nosh*
             build/*.dll
-            build/*.dylib
-            build/*.so
