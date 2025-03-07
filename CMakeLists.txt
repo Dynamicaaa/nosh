@@ -93,9 +93,14 @@ pkg_check_modules(ARGON2 REQUIRED libargon2)
 include_directories(${ARGON2_INCLUDE_DIRS})
 link_directories(${ARGON2_LIBRARY_DIRS})
 
-# Explicitly set the Argon2 library path for macOS
+# Handle Argon2 library path for macOS
 if(APPLE)
-    target_link_libraries(nosh PRIVATE /usr/local/Cellar/argon2/20190702_1/lib/libargon2.dylib)
+    execute_process(
+        COMMAND brew --prefix argon2
+        OUTPUT_VARIABLE ARGON2_PREFIX
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    target_link_libraries(nosh PRIVATE "${ARGON2_PREFIX}/lib/libargon2.dylib")
 else()
     target_link_libraries(nosh PRIVATE ${ARGON2_LIBRARIES})
 endif()
