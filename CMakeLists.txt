@@ -28,6 +28,9 @@ if(WIN32)
         MbedTLS::mbedx509
         "${ARGON2_ROOT}/lib/argon2.lib")
     
+    # Windows doesn't use readline/curses
+    add_definitions(-DWINDOWS_BUILD)
+    
 elseif(APPLE)
     find_library(SECURITY_FRAMEWORK Security)
     find_library(CORE_FOUNDATION CoreFoundation)
@@ -51,6 +54,11 @@ elseif(APPLE)
         "${ARGON2_PREFIX}/include"
     )
     
+    # Find Curses and Readline for Unix-like systems
+    find_package(Curses REQUIRED)
+    find_library(READLINE_LIBRARY readline)
+    include_directories(${CURSES_INCLUDE_DIR})
+    
     target_link_libraries(nosh PRIVATE
         ${SECURITY_FRAMEWORK}
         ${CORE_FOUNDATION}
@@ -61,6 +69,8 @@ elseif(APPLE)
         "${MBEDTLS_PREFIX}/lib/libmbedcrypto.dylib"
         "${MBEDTLS_PREFIX}/lib/libmbedx509.dylib"
         "${ARGON2_PREFIX}/lib/libargon2.dylib"
+        ${CURSES_LIBRARIES}
+        ${READLINE_LIBRARY}
         c
     )
     
@@ -76,29 +86,20 @@ else()
     include_directories(${MBEDTLS_INCLUDE_DIRS})
     link_directories(${MBEDTLS_LIBRARY_DIRS})
     
+    # Find Curses and Readline for Unix-like systems
+    find_package(Curses REQUIRED)
+    find_library(READLINE_LIBRARY readline)
+    include_directories(${CURSES_INCLUDE_DIR})
+    
     target_link_libraries(nosh PRIVATE
         mbedtls
         mbedcrypto
         mbedx509
         argon2
+        ${CURSES_LIBRARIES}
+        ${READLINE_LIBRARY}
     )
-    
-    # Use regular curses for Unix-like systems
-    find_package(Curses REQUIRED)
-    include_directories(${CURSES_INCLUDE_DIR})
-    target_link_libraries(nosh PRIVATE ${CURSES_LIBRARIES})
 endif()
-
-# Find readline dependency
-find_package(Curses REQUIRED)
-find_library(READLINE_LIBRARY readline)
-target_link_libraries(nosh PRIVATE ${CURSES_LIBRARIES} ${READLINE_LIBRARY})
-
-# Find Argon2 dependency
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(ARGON2 REQUIRED libargon2)
-include_directories(${ARGON2_INCLUDE_DIRS})
-link_directories(${ARGON2_LIBRARY_DIRS})
 
 # Handle Argon2 library path for macOS
 if(APPLE)
@@ -108,8 +109,6 @@ if(APPLE)
         OUTPUT_STRIP_TRAILING_WHITESPACE
     )
     target_link_libraries(nosh PRIVATE "${ARGON2_PREFIX}/lib/libargon2.dylib")
-else()
-    target_link_libraries(nosh PRIVATE ${ARGON2_LIBRARIES})
 endif()
 
 # Install target
