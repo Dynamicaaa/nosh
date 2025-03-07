@@ -12,7 +12,7 @@ jobs:
     outputs:
       version: ${{ steps.get_version.outputs.version }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       
       - name: Check for git
         run: |
@@ -40,7 +40,7 @@ jobs:
         target: [linux, macos, windows]
         
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Check for git
         run: |
@@ -100,7 +100,7 @@ jobs:
           ./build/nosh --version || true
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: nosh-${{ matrix.target }}
           path: |
