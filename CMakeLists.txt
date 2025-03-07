@@ -30,15 +30,24 @@ elseif(APPLE)
     find_library(SECURITY_FRAMEWORK Security)
     find_library(CORE_FOUNDATION CoreFoundation)
     
-    # Use brew-installed mbedtls on macOS
+    # Get MbedTLS and Argon2 paths from Homebrew
     execute_process(
         COMMAND brew --prefix mbedtls
         OUTPUT_VARIABLE MBEDTLS_PREFIX
         OUTPUT_STRIP_TRAILING_WHITESPACE
     )
     
-    # Add MbedTLS include directory
-    include_directories("${MBEDTLS_PREFIX}/include")
+    execute_process(
+        COMMAND brew --prefix argon2
+        OUTPUT_VARIABLE ARGON2_PREFIX
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    
+    # Add include directories
+    include_directories(
+        "${MBEDTLS_PREFIX}/include"
+        "${ARGON2_PREFIX}/include"
+    )
     
     target_link_libraries(nosh PRIVATE
         ${SECURITY_FRAMEWORK}
@@ -49,6 +58,7 @@ elseif(APPLE)
         "${MBEDTLS_PREFIX}/lib/libmbedtls.dylib"
         "${MBEDTLS_PREFIX}/lib/libmbedcrypto.dylib"
         "${MBEDTLS_PREFIX}/lib/libmbedx509.dylib"
+        "${ARGON2_PREFIX}/lib/libargon2.dylib"
         c
     )
     
