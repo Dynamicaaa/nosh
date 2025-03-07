@@ -71,9 +71,6 @@ jobs:
         run: |
           /usr/local/bin/nosh --version || true
 
-      - name: Uninstall
-        run: sudo cmake --build build --target uninstall
-
   build-windows:
     runs-on: windows-latest
 
