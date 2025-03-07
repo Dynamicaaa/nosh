@@ -1,7 +1,26 @@
 #ifndef NOSH_H
 #define NOSH_H
 
-#include <limits.h>
+// Platform-specific includes
+#ifdef _WIN32
+    #include <windows.h>
+    #define PATH_MAX MAX_PATH
+    #define strdup _strdup
+    #include <direct.h>
+    #define getcwd _getcwd
+    #define chdir _chdir
+    #define popen _popen
+    #define pclose _pclose
+    #define unlink _unlink
+#else
+    #include <unistd.h>
+    #include <glob.h>
+    #include <sys/wait.h>
+    #include <limits.h>  // For PATH_MAX on Unix systems
+    #ifndef PATH_MAX
+        #define PATH_MAX 4096 // Fallback value if not defined
+    #endif
+#endif
 
 // Global configuration and limits.
 #define MAX_ARGS 64
@@ -16,11 +35,6 @@
 
 // ANSI escape sequence to clear screen (including scrollback, works on macOS Terminal).
 #define CLEAR_SEQUENCE "\033[H\033[2J\033[3J"
-
-#ifdef _WIN32
-#include <process.h>
-#include <windows.h>
-#endif
 
 // Shell initialization and cleanup (if needed in the future).
 void init_shell(void);
