@@ -42,19 +42,48 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install conan
-          conan profile detect
+          conan profile detect --force
+          conan profile path default > conan_profile
 
       - name: Configure Conan Dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
-          conan install . --output-folder=build-x86_64 --build=missing -s build_type=Release -s arch=x86_64
-          conan install . --output-folder=build-arm64 --build=missing -s build_type=Release -s arch=armv8
+          conan install . \
+            --output-folder=build-x86_64 \
+            --build=missing \
+            -s build_type=Release \
+            -s arch=x86_64 \
+            -s compiler=apple-clang \
+            -s compiler.libcxx=libc++
 
-      - name: Configure Conan Dependencies (Non-macOS)
-        if: runner.os != 'macOS'
+          conan install . \
+            --output-folder=build-arm64 \
+            --build=missing \
+            -s build_type=Release \
+            -s arch=armv8 \
+            -s compiler=apple-clang \
+            -s compiler.libcxx=libc++
+
+      - name: Configure Conan Dependencies (Unix)
+        if: runner.os == 'Linux'
         run: |
-          conan install . --output-folder=build --build=missing -s build_type=Release
-        
+          conan install . \
+            --output-folder=build \
+            --build=missing \
+            -s build_type=Release \
+            -s compiler=gcc \
+            -s compiler.libcxx=libstdc++11
+
+      - name: Configure Conan Dependencies (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          conan install . `
+            --output-folder=build `
+            --build=missing `
+            -s build_type=Release `
+            -s compiler="Visual Studio"
+
       - name: Configure CMake (Unix)
         if: runner.os != 'Windows'
         run: |
