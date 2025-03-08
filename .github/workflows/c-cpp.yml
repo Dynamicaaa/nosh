@@ -57,6 +57,10 @@ jobs:
       - name: Install dependencies
         run: |
           brew install cmake readline openssl argon2 mbedtls
+      - name: Install x86_64 dependencies
+        if: matrix.arch == 'x86_64'
+        run: |
+          arch -x86_64 brew install mbedtls argon2
       - name: Configure CMake
         run: |
           cmake -B build-${{ matrix.arch }} \

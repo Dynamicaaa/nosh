@@ -149,6 +149,33 @@ if(APPLE)
     target_link_libraries(nosh PRIVATE "${ARGON2_PREFIX}/lib/libargon2.dylib")
 endif()
 
+# Add architecture-specific library paths
+if(APPLE)
+    if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+        set(HOMEBREW_PREFIX "/usr/local")
+    else()
+        set(HOMEBREW_PREFIX "/opt/homebrew")
+    endif()
+    
+    include_directories(
+        ${HOMEBREW_PREFIX}/include
+    )
+    
+    link_directories(
+        ${HOMEBREW_PREFIX}/lib
+    )
+endif()
+
+# Ensure proper linking
+target_link_libraries(nosh
+    PRIVATE
+    readline
+    mbedtls
+    mbedcrypto 
+    mbedx509
+    argon2
+)
+
 # Install target
 if(UNIX)
     install(TARGETS nosh DESTINATION /usr/local/bin)
