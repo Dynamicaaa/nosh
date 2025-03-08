@@ -48,7 +48,6 @@ jobs:
         echo "MBEDTLS_PREFIX=$(brew --prefix mbedtls)" >> $GITHUB_ENV
         echo "ARGON2_PREFIX=$(brew --prefix argon2)" >> $GITHUB_ENV
         echo "HOMEBREW_PREFIX=$(brew --prefix)" >> $GITHUB_ENV
-        echo "DYLD_LIBRARY_PATH=$(brew --prefix mbedtls)/lib:$(brew --prefix argon2)/lib:$DYLD_LIBRARY_PATH" >> $GITHUB_ENV
 
     - name: Install Dependencies (Windows)
       if: matrix.os == 'windows-latest'
@@ -65,11 +64,16 @@ jobs:
     - name: Configure CMake (Unix)
       if: matrix.os != 'windows-latest'
       run: |
-        cmake -B build -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_PREFIX_PATH="$MBEDTLS_PREFIX;$ARGON2_PREFIX" \
-          -DOPENSSL_ROOT_DIR=$(brew --prefix openssl) \
-          -DCMAKE_BUILD_RPATH_USE_ORIGIN=ON \
-          -DCMAKE_INSTALL_RPATH="@loader_path/../lib"
+        if [ "${{ matrix.os }}" = "macos-latest" ]; then
+          cmake -B build -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="$MBEDTLS_PREFIX;$ARGON2_PREFIX" \
+            -DOPENSSL_ROOT_DIR=$(brew --prefix openssl) \
+            -DCMAKE_LIBRARY_PATH="$(brew --prefix mbedtls)/lib;$(brew --prefix argon2)/lib" \
+            -DCMAKE_BUILD_RPATH_USE_ORIGIN=ON \
+            -DCMAKE_INSTALL_RPATH="@loader_path/../lib"
+        else
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
+        fi
 
     - name: Configure CMake (Windows)
       if: matrix.os == 'windows-latest'
