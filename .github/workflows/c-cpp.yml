@@ -133,14 +133,23 @@ jobs:
       if: matrix.os != 'windows-latest'
       run: |
         if [ "${{ matrix.os }}" = "macos-latest" ]; then
+          BREW_PREFIX=""
+          if [ "${{ matrix.arch }}" = "x64" ]; then
+            BREW_PREFIX="/usr/local"
+          else
+            BREW_PREFIX="/opt/homebrew"
+          fi
+          
           cmake -B build -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_PREFIX_PATH="$MBEDTLS_PREFIX;$ARGON2_PREFIX" \
-            -DOPENSSL_ROOT_DIR=$(brew --prefix openssl) \
+            -DCMAKE_PREFIX_PATH="${BREW_PREFIX}" \
+            -DOPENSSL_ROOT_DIR=$(${BREW_PREFIX}/bin/brew --prefix openssl) \
             -DCMAKE_FIND_FRAMEWORK=LAST \
             -DCMAKE_INSTALL_NAME_DIR=@executable_path/../lib \
             -DCMAKE_BUILD_WITH_INSTALL_NAME_DIR=ON \
-            -DCMAKE_LIBRARY_PATH="$(brew --prefix mbedtls)/lib;$(brew --prefix argon2)/lib" \
-            -DCMAKE_INCLUDE_PATH="$(brew --prefix mbedtls)/include;$(brew --prefix argon2)/include" \
+            -DCMAKE_LIBRARY_PATH="${BREW_PREFIX}/lib" \
+            -DCMAKE_INCLUDE_PATH="${BREW_PREFIX}/include" \
+            -DMBEDTLS_PREFIX="$(${BREW_PREFIX}/bin/brew --prefix mbedtls)" \
+            -DARGON2_PREFIX="$(${BREW_PREFIX}/bin/brew --prefix argon2)" \
             -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch == 'arm64' && 'arm64' || 'x86_64' }}
         else
           cmake -B build -DCMAKE_BUILD_TYPE=Release
