@@ -22,7 +22,7 @@ jobs:
               libmbedtls-dev
               libargon2-dev
               pkg-config
-          - os: macos-latest-large
+          - os: macos-13
             arch: x86_64
             dependencies: >
               readline
@@ -52,7 +52,7 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y ${{ matrix.dependencies }}
     - name: Install Dependencies (macOS)
-      if: matrix.os == 'macos-latest-large' || matrix.os == 'macos-latest'
+      if: matrix.os == 'macos-13' || matrix.os == 'macos-latest'
       run: |
         brew install readline openssl mbedtls argon2 pkg-config
         echo "MBEDTLS_PREFIX=$(brew --prefix mbedtls)" >> $GITHUB_ENV
@@ -86,7 +86,7 @@ jobs:
       run: |
         git config --global --add safe.directory '*'
     - name: Configure CMake (Unix)
-      if: matrix.os != 'windows-latest' && matrix.os != 'macos-latest-large'
+      if: matrix.os != 'windows-latest' && matrix.os != 'macos-13'
       run: |
         cmake -B build -DCMAKE_BUILD_TYPE=Release
     - name: Configure CMake (macOS)
