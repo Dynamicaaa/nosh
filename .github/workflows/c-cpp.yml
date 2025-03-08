@@ -21,119 +21,96 @@ jobs:
           VERSION_STRING="$VERSION-$COMMIT"
           echo "version=$VERSION_STRING" >> $GITHUB_OUTPUT
 
-  build-linux:
+  build:
     needs: version
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential cmake pkg-config \
-            libreadline-dev libmbedtls-dev libargon2-dev
-      - name: Configure CMake
-        run: cmake -B build -DVERSION=${{needs.version.outputs.version}}
-      - name: Build
-        run: cmake --build build
-      - name: Test binary
-        run: |
-          test -f build/nosh
-          ./build/nosh --version || true
-      - uses: actions/upload-artifact@v4
-        with:
-          name: nosh-linux
-          path: build/nosh*
-
-  build-macos:
-    needs: version
-    runs-on: macos-latest
     strategy:
       matrix:
-        arch: [x86_64, arm64]
-      fail-fast: true
-      max-parallel: 1
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: macos-latest
+            arch: [x86_64, arm64]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
-      - name: Install dependencies
-        run: |
-          brew install cmake readline openssl argon2 mbedtls
-      - name: Install x86_64 dependencies
-        if: matrix.arch == 'x86_64'
-        run: |
-          sudo mkdir -p /usr/local/bin
-          sudo ln -sf /usr/bin/arch /usr/local/bin/arch
-          arch -x86_64 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-          eval "$(/usr/local/bin/brew shellenv)"
-          arch -x86_64 /usr/local/bin/brew update
-          HOMEBREW_NO_AUTO_UPDATE=1 arch -x86_64 /usr/local/bin/brew install mbedtls argon2
-      - name: Configure CMake
-        run: |
-          cmake -B build-${{ matrix.arch }} \
-            -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch }} \
-            -DOPENSSL_ROOT_DIR=$(brew --prefix openssl) \
-            -DCMAKE_BUILD_TYPE=Release \
-            "-DCMAKE_C_FLAGS=-DNOSH_VERSION=\"${{needs.version.outputs.version}}\"" \
-            -DVERSION=${{needs.version.outputs.version}}
-      - name: Build
-        run: cmake --build build-${{ matrix.arch }}
-      - name: Test binary (skip for arm64 on Intel runners)
-        if: matrix.arch == 'x86_64'
-        run: |
-          test -f build-${{ matrix.arch }}/nosh
-          ./build-${{ matrix.arch }}/nosh --version || true
-      - name: Upload x86_64 artifact for universal binary
-        if: matrix.arch == 'x86_64'
-        uses: actions/upload-artifact@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
-          name: nosh-macos-x86_64
-          path: build-x86_64/nosh
-          retention-days: 1
-      - name: Download x86_64 build
-        if: matrix.arch == 'arm64'
-        uses: actions/download-artifact@v4
-        with:
-          name: nosh-macos-x86_64
-          path: build-x86_64
-      - name: Create Universal Binary
-        if: matrix.arch == 'arm64'
+          python-version: '3.x'
+          
+      - name: Install Conan
         run: |
-          chmod +x build-x86_64/nosh
-          mkdir -p build
-          lipo -create -output build/nosh \
-            build-x86_64/nosh \
-            build-arm64/nosh
-      - uses: actions/upload-artifact@v4
-        if: matrix.arch == 'arm64'
-        with:
-          name: nosh-macos-universal
-          path: build/nosh
+          python -m pip install --upgrade pip
+          pip install conan
+          conan profile detect
 
-  build-windows:
-    needs: version
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Install dependencies
-        shell: pwsh
+      - name: Configure Conan Dependencies
         run: |
-          vcpkg install readline:x64-windows mbedtls:x64-windows argon2:x64-windows `
-            dirent:x64-windows getopt:x64-windows
-      - name: Configure CMake
+          conan install . --output-folder=build --build=missing -s build_type=Release
+        
+      - name: Configure CMake (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          cmake -B build -DCMAKE_TOOLCHAIN_FILE=build/conan_toolchain.cmake \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DVERSION=${{needs.version.outputs.version}}
+
+      - name: Configure CMake (Windows)
+        if: runner.os == 'Windows'
         shell: pwsh
         run: |
           cmake -B build -S . `
-            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
-            -DCMAKE_C_FLAGS="/D_CRT_SECURE_NO_WARNINGS /DWIN32_LEAN_AND_MEAN /DWINVER=0x0601 /D_WIN32_WINNT=0x0601" `
+            -DCMAKE_TOOLCHAIN_FILE=build/conan_toolchain.cmake `
             -DCMAKE_BUILD_TYPE=Release `
             -DVERSION=${{needs.version.outputs.version}}
-      - name: Build
-        run: cmake --build build --config Release
-      - name: Test binary
-        shell: pwsh
+
+      - name: Configure CMake (macOS Universal)  
+        if: runner.os == 'macOS'
         run: |
-          if (!(Test-Path "build/Release/nosh.exe")) { exit 1 }
-          .\build\Release\nosh.exe --version
-      - uses: actions/upload-artifact@v4
+          cmake -B build-x86_64 \
+            -DCMAKE_TOOLCHAIN_FILE=build/conan_toolchain.cmake \
+            -DCMAKE_OSX_ARCHITECTURES=x86_64 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DVERSION=${{needs.version.outputs.version}}
+          
+          cmake -B build-arm64 \
+            -DCMAKE_TOOLCHAIN_FILE=build/conan_toolchain.cmake \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DVERSION=${{needs.version.outputs.version}}
+
+      - name: Build (Unix/Windows)
+        if: runner.os != 'macOS'
+        run: cmake --build build --config Release
+
+      - name: Build (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          cmake --build build-x86_64
+          cmake --build build-arm64
+          mkdir -p build/Release
+          lipo -create \
+            build-x86_64/nosh \
+            build-arm64/nosh \
+            -output build/Release/nosh
+
+      - name: Upload Artifacts (Unix)
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: nosh-linux
+          path: build/nosh
+
+      - name: Upload Artifacts (macOS)
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: nosh-macos
+          path: build/Release/nosh
+
+      - name: Upload Artifacts (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
         with:
           name: nosh-windows
           path: |

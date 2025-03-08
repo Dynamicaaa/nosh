@@ -1,0 +1,13 @@
+[requires]
+mbedtls/3.6.2
+argon2/20190702
+readline/8.2
+
+[generators]
+CMakeDeps
+CMakeToolchain
+
+[options]
+mbedtls:shared=True
+argon2:shared=True
+readline:shared=True
