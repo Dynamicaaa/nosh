@@ -60,7 +60,10 @@ jobs:
       - name: Install x86_64 dependencies
         if: matrix.arch == 'x86_64'
         run: |
-          arch -x86_64 brew install mbedtls argon2
+          sudo mkdir -p /usr/local/bin
+          sudo ln -s /usr/bin/arch -x86_64 /usr/local/bin/arch
+          arch -x86_64 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+          arch -x86_64 /usr/local/bin/brew install mbedtls argon2
       - name: Configure CMake
         run: |
           cmake -B build-${{ matrix.arch }} \
