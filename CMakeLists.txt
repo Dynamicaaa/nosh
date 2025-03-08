@@ -52,47 +52,6 @@ add_executable(nosh ${SOURCES})
 
 # Platform-specific settings
 if(WIN32)
-    target_link_libraries(nosh PRIVATE crypt32)
-    
-    # Windows doesn't use readline/curses
-    add_definitions(-DWINDOWS_BUILD)
-    
-elseif(APPLE)
-    find_library(SECURITY_FRAMEWORK Security)
-    find_library(CORE_FOUNDATION CoreFoundation)
-    
-    # Find Curses and Readline for Unix-like systems
-    find_package(Curses REQUIRED)
-    find_library(READLINE_LIBRARY readline)
-    include_directories(${CURSES_INCLUDE_DIR})
-    
-    target_link_libraries(nosh PRIVATE
-        ${SECURITY_FRAMEWORK}
-        ${CORE_FOUNDATION}
-        "-framework CoreFoundation"
-        "-framework Security"
-        "-framework CoreServices"
-        ${CURSES_LIBRARIES}
-        ${READLINE_LIBRARY}
-    )
-    
-else()
-    find_package(OpenSSL REQUIRED)
-    
-    # Find Curses and Readline for Unix-like systems
-    find_package(Curses REQUIRED)
-    find_library(READLINE_LIBRARY readline)
-    include_directories(${CURSES_INCLUDE_DIR})
-    
-    target_link_libraries(nosh PRIVATE
-        OpenSSL::Crypto
-        ${CURSES_LIBRARIES}
-        ${READLINE_LIBRARY}
-    )
-endif()
-
-# Remove Conan dependencies section
-if(WIN32)
     target_link_libraries(nosh PRIVATE 
         crypt32
         mbedtls
@@ -101,10 +60,48 @@ if(WIN32)
         argon2
     )
 elseif(APPLE)
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(MBEDTLS REQUIRED mbedtls)
-    pkg_check_modules(ARGON2 REQUIRED libargon2)
+    find_library(SECURITY_FRAMEWORK Security)
+    find_library(CORE_FOUNDATION CoreFoundation)
     
+    # Find Curses and Readline
+    find_package(Curses REQUIRED)
+    find_library(READLINE_LIBRARY readline)
+    
+    # Get Homebrew prefix based on architecture
+    if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+        set(HOMEBREW_PREFIX "/usr/local")
+    else()
+        set(HOMEBREW_PREFIX "/opt/homebrew")
+    endif()
+
+    # Get MbedTLS and Argon2 paths
+    execute_process(
+        COMMAND ${HOMEBREW_PREFIX}/bin/brew --prefix mbedtls
+        OUTPUT_VARIABLE MBEDTLS_PREFIX
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    execute_process(
+        COMMAND ${HOMEBREW_PREFIX}/bin/brew --prefix argon2
+        OUTPUT_VARIABLE ARGON2_PREFIX
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    
+    # Include directories
+    include_directories(
+        ${CURSES_INCLUDE_DIR}
+        ${HOMEBREW_PREFIX}/include
+        ${MBEDTLS_PREFIX}/include
+        ${ARGON2_PREFIX}/include
+    )
+    
+    # Link directories
+    link_directories(
+        ${HOMEBREW_PREFIX}/lib
+        ${MBEDTLS_PREFIX}/lib
+        ${ARGON2_PREFIX}/lib
+    )
+    
+    # Single target_link_libraries call
     target_link_libraries(nosh PRIVATE
         ${SECURITY_FRAMEWORK}
         ${CORE_FOUNDATION}
@@ -113,13 +110,15 @@ elseif(APPLE)
         "-framework CoreServices"
         ${CURSES_LIBRARIES}
         ${READLINE_LIBRARY}
-        mbedtls
-        mbedcrypto
-        mbedx509
-        argon2
+        "${MBEDTLS_PREFIX}/lib/libmbedtls.dylib"
+        "${MBEDTLS_PREFIX}/lib/libmbedcrypto.dylib"
+        "${MBEDTLS_PREFIX}/lib/libmbedx509.dylib"
+        "${ARGON2_PREFIX}/lib/libargon2.dylib"
     )
 else()
+    # Linux settings
     find_package(OpenSSL REQUIRED)
+    find_package(PkgConfig REQUIRED)
     pkg_check_modules(MBEDTLS REQUIRED mbedtls)
     pkg_check_modules(ARGON2 REQUIRED libargon2)
     
