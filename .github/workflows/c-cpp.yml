@@ -52,7 +52,7 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y ${{ matrix.dependencies }}
     - name: Install Dependencies (macOS)
-      if: matrix.os == 'macos-13'
+      if: matrix.os == 'macos-13' || matrix.os == 'macos-latest'
       run: |
         brew install readline openssl mbedtls argon2 pkg-config
         echo "MBEDTLS_PREFIX=$(brew --prefix mbedtls)" >> $GITHUB_ENV
@@ -90,17 +90,20 @@ jobs:
       run: |
         cmake -B build -DCMAKE_BUILD_TYPE=Release
     - name: Configure CMake (macOS)
-      if: matrix.os == 'macos-13'
+      if: matrix.os == 'macos-13' || matrix.os == 'macos-latest'
       run: |
         cmake -B build -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch }} \
-          -DCMAKE_PREFIX_PATH="$MBEDTLS_PREFIX;$ARGON2_PREFIX" \
+          -DCMAKE_PREFIX_PATH="$(brew --prefix)" \
           -DOPENSSL_ROOT_DIR=$(brew --prefix openssl) \
+          -DMBEDTLS_ROOT_DIR=$(brew --prefix mbedtls) \
+          -DARGON2_ROOT_DIR=$(brew --prefix argon2) \
           -DCMAKE_FIND_FRAMEWORK=LAST \
           -DCMAKE_INSTALL_NAME_DIR=@executable_path/../lib \
           -DCMAKE_BUILD_WITH_INSTALL_NAME_DIR=ON \
           -DCMAKE_LIBRARY_PATH="$(brew --prefix mbedtls)/lib;$(brew --prefix argon2)/lib" \
-          -DCMAKE_INCLUDE_PATH="$(brew --prefix mbedtls)/include;$(brew --prefix argon2)/include"
+          -DCMAKE_INCLUDE_PATH="$(brew --prefix mbedtls)/include;$(brew --prefix argon2)/include" \
+          -DCMAKE_C_FLAGS="-I$(brew --prefix mbedtls)/include -I$(brew --prefix argon2)/include"
     - name: Configure CMake (Windows)
       if: matrix.os == 'windows-latest'
       shell: msys2 {0}
