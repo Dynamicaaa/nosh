@@ -67,12 +67,25 @@ jobs:
           softwareupdate --install-rosetta --agree-to-license
         fi
         
+        # Install Homebrew if not present
+        if [ ! -f "/usr/local/bin/brew" ] && [ "${{ matrix.arch }}" = "x64" ]; then
+          cd /tmp
+          mkdir homebrew && curl -L https://github.com/Homebrew/brew/tarball/master | tar xz --strip 1 -C homebrew
+          sudo mv homebrew /usr/local/Homebrew
+          sudo ln -s /usr/local/Homebrew/bin/brew /usr/local/bin/brew
+          sudo chown -R $(whoami) /usr/local/Homebrew
+        fi
+        
         # Set Homebrew prefix based on architecture
         if [ "${{ matrix.arch }}" = "x64" ]; then
           HOMEBREW_PREFIX="/usr/local"
           echo "HOMEBREW_PREFIX=/usr/local" >> $GITHUB_ENV
           # Install x86_64 versions of dependencies
-          arch -x86_64 /usr/local/bin/brew install readline openssl mbedtls argon2 pkg-config
+          if [ "$(uname -m)" = "arm64" ]; then
+            arch -x86_64 /usr/local/bin/brew install readline openssl mbedtls argon2 pkg-config
+          else
+            /usr/local/bin/brew install readline openssl mbedtls argon2 pkg-config
+          fi
         else
           HOMEBREW_PREFIX="/opt/homebrew"
           echo "HOMEBREW_PREFIX=/opt/homebrew" >> $GITHUB_ENV
