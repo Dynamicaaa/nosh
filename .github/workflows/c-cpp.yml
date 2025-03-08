@@ -67,6 +67,7 @@ jobs:
           mingw-w64-x86_64-argon2
           mingw-w64-x86_64-pkgconf
           mingw-w64-x86_64-readline
+          mingw-w64-x86_64-windows-default-manifest
 
     - name: Configure CMake (Unix)
       if: matrix.os != 'windows-latest'
@@ -91,13 +92,14 @@ jobs:
         cmake -B build -G "MinGW Makefiles" \
           -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_C_COMPILER=/mingw64/bin/gcc.exe \
-          -DCMAKE_MAKE_PROGRAM=/mingw64/bin/mingw32-make.exe
+          -DCMAKE_MAKE_PROGRAM=/mingw64/bin/mingw32-make.exe \
+          -DCMAKE_C_FLAGS="-D_GNU_SOURCE"
 
     - name: Build
       if: matrix.os == 'windows-latest'
       shell: msys2 {0}
       run: |
-        cmake --build build
+        cd build && mingw32-make
 
     - uses: actions/upload-artifact@v4
       with:

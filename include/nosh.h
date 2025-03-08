@@ -1,26 +1,34 @@
 #ifndef NOSH_H
 #define NOSH_H
 
-#include "version.h"  // Add this line at the top
+#include "version.h"
 
 // Platform-specific includes
 #ifdef _WIN32
     #include <windows.h>
-    #define PATH_MAX MAX_PATH
-    #define strdup _strdup
+    // Remove PATH_MAX definition since it's already defined
     #include <direct.h>
     #define getcwd _getcwd
     #define chdir _chdir
     #define popen _popen
     #define pclose _pclose
     #define unlink _unlink
+    // Windows glob emulation
+    #define GLOB_NOMATCH 3
+    typedef struct {
+        size_t gl_pathc;
+        char **gl_pathv;
+        size_t gl_offs;
+    } glob_t;
+    int glob(const char *pattern, int flags, void *errfunc, glob_t *pglob);
+    void globfree(glob_t *pglob);
 #else
     #include <unistd.h>
     #include <glob.h>
     #include <sys/wait.h>
-    #include <limits.h>  // For PATH_MAX on Unix systems
+    #include <limits.h>
     #ifndef PATH_MAX
-        #define PATH_MAX 4096 // Fallback value if not defined
+        #define PATH_MAX 4096
     #endif
 #endif
 
