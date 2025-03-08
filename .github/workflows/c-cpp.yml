@@ -82,7 +82,8 @@ jobs:
             -s compiler=apple-clang \
             -s compiler.libcxx=libc++ \
             -g CMakeToolchain \
-            -g CMakeDeps
+            -g CMakeDeps \
+            -c tools.cmake.cmaketoolchain:generator=Ninja
 
           conan install . \
             --output-folder=build-arm64 \
@@ -92,7 +93,8 @@ jobs:
             -s compiler=apple-clang \
             -s compiler.libcxx=libc++ \
             -g CMakeToolchain \
-            -g CMakeDeps
+            -g CMakeDeps \
+            -c tools.cmake.cmaketoolchain:generator=Ninja
 
       - name: Configure Conan Dependencies (Unix)
         if: runner.os == 'Linux'
