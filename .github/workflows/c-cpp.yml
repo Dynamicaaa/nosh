@@ -108,6 +108,19 @@ jobs:
       run: |
         cd build && mingw32-make VERBOSE=1
 
+    # Add version test steps for each platform
+    - name: Test Version (Unix)
+      if: matrix.os != 'windows-latest'
+      run: |
+        ./build/nosh --version
+
+    - name: Test Version (Windows) 
+      if: matrix.os == 'windows-latest'
+      shell: msys2 {0}
+      run: |
+        ./build/nosh.exe --version
+
+    # Keep existing artifact upload
     - uses: actions/upload-artifact@v4
       with:
         name: nosh-${{ matrix.os }}
