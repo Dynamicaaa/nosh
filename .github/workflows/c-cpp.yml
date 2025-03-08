@@ -90,7 +90,7 @@ jobs:
       run: |
         cmake -B build -DCMAKE_BUILD_TYPE=Release
     - name: Configure CMake (macOS)
-      if: matrix.os == 'macos-latest-large' || matrix.os == 'macos-latest'
+      if: matrix.os == 'macos-13' || matrix.os == 'macos-latest'
       run: |
         cmake -B build -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch }} \
