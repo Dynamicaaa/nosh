@@ -150,16 +150,26 @@ jobs:
         run: |
           git clone --depth 1 https://github.com/P-H-C/phc-winner-argon2.git
           cd phc-winner-argon2
-          mkdir build && cd build
-          cmake .. \
-            -DCMAKE_INSTALL_PREFIX=/usr/x86_64-w64-mingw32 \
-            -DCMAKE_TOOLCHAIN_FILE=../../cmake/windows-toolchain.cmake \
-            -DCMAKE_SYSTEM_NAME=Windows \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DARGON2_BUILD_SHARED_LIBS=ON
-          cmake --build . -j$(nproc)
-          sudo cmake --install .
-          cd ../..
+          
+          # Build DLL and static lib with MinGW
+          x86_64-w64-mingw32-gcc -shared -o libargon2.dll \
+            -Iinclude -Isrc \
+            src/argon2.c src/core.c src/blake2/blake2b.c \
+            src/thread.c src/encoding.c src/opt.c \
+            -Wl,--out-implib,libargon2.dll.a
+          
+          x86_64-w64-mingw32-gcc -c -Iinclude -Isrc \
+            src/argon2.c src/core.c src/blake2/blake2b.c \
+            src/thread.c src/encoding.c src/opt.c
+          x86_64-w64-mingw32-ar rcs libargon2.a *.o
+          
+          # Install files
+          sudo mkdir -p /usr/x86_64-w64-mingw32/{include,lib,bin}
+          sudo cp include/argon2.h /usr/x86_64-w64-mingw32/include/
+          sudo cp libargon2.dll.a /usr/x86_64-w64-mingw32/lib/
+          sudo cp libargon2.a /usr/x86_64-w64-mingw32/lib/
+          sudo cp libargon2.dll /usr/x86_64-w64-mingw32/bin/
+          cd ..
 
       - name: Configure CMake 
         run: |
