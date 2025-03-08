@@ -134,9 +134,13 @@ jobs:
             -DCMAKE_SYSTEM_NAME=Windows \
             -DUSE_SHARED_MBEDTLS_LIBRARY=ON \
             -DENABLE_PROGRAMS=OFF \
-            -DENABLE_TESTING=OFF
+            -DENABLE_TESTING=OFF \
+            -DGEN_FILES=ON \
+            -DCMAKE_BUILD_TYPE=Release
           make -j$(nproc)
           sudo make install
+          # Copy config file
+          sudo cp $PWD/cmake/mbedtlsConfig.cmake /usr/x86_64-w64-mingw32/lib/cmake/mbedtls/
           cd ../..
 
       - name: Install MinGW Argon2
@@ -168,6 +172,7 @@ jobs:
           -DCMAKE_SYSTEM_NAME=Windows \
           -DCMAKE_PREFIX_PATH=/usr/x86_64-w64-mingw32 \
           -DCMAKE_BUILD_TYPE=Release \
+          -Dmbedtls_DIR=/usr/x86_64-w64-mingw32/lib/cmake/mbedtls \
           -DVERSION=${{needs.version.outputs.version}}
 
       - name: Build
