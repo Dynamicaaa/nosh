@@ -13,14 +13,6 @@ jobs:
       version: ${{ steps.get_version.outputs.version }}
     steps:
       - uses: actions/checkout@v3
-      
-      - name: Check for git
-        run: |
-          if ! command -v git &> /dev/null; then
-            sudo apt-get update
-            sudo apt-get install -y git
-          fi
-          
       - id: get_version
         name: Get version
         run: |
@@ -39,180 +31,65 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential cmake pkg-config \
             libreadline-dev libmbedtls-dev libargon2-dev
-
       - name: Configure CMake
-        run: |
-          cmake -B build -S . \
-          -DVERSION=${{needs.version.outputs.version}}
-
+        run: cmake -B build -DVERSION=${{needs.version.outputs.version}}
       - name: Build
         run: cmake --build build
-
-      - name: Check binary
-        run: test -f build/nosh
-
-      - name: Test version
-        run: ./build/nosh --version || true
-
+      - name: Test binary
+        run: |
+          test -f build/nosh
+          ./build/nosh --version || true
       - uses: actions/upload-artifact@v4
         with:
           name: nosh-linux
-          path: |
-            build/nosh*
-            build/*.so
+          path: build/nosh*
 
   build-macos:
     needs: version
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v3
-
-      - name: Set up OSXCross
-        run: |
-          # Clone the osxcross repository and build it
-          git clone https://github.com/tpoechtrager/osxcross
-          cd osxcross
-          wget -nc https://github.com/phracker/MacOSX-SDKs/releases/download/11.3/MacOSX11.3.sdk.tar.xz
-          mkdir -p tarballs
-          mv MacOSX11.3.sdk.tar.xz tarballs/
-          UNATTENDED=1 ./build.sh
-          # Save the absolute path of osxcross to an environment variable for later steps
-          echo "OSXCROSS_ROOT=$(pwd)" >> $GITHUB_ENV
-          # Add the osxcross bin directory to PATH
-          echo "$(pwd)/target/bin" >> $GITHUB_PATH
-          # Go back to the repository root
-          cd ..
-          
-      - name: Debug OSXCROSS_ROOT
-        run: |
-          # Print the value of OSXCROSS_ROOT to ensure it is set correctly
-          echo "OSXCROSS_ROOT is set to: $OSXCROSS_ROOT"
-
       - name: Install dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake make clang llvm
-
-      - name: Configure CMake for macOS build
-        env:
-          # Retrieve OSXCROSS_ROOT from the environment (set in the previous step)
-          OSXCROSS_ROOT: ${{ env.OSXCROSS_ROOT }}
-          # Build absolute paths for the cross-compilers
-          CC: ${{ env.OSXCROSS_ROOT }}/target/bin/o64-clang
-          CXX: ${{ env.OSXCROSS_ROOT }}/target/bin/o64-clang++
+          brew install cmake readline openssl argon2 mbedtls
+      - name: Configure CMake
         run: |
-          # Export the variables to be used in this shell session
-          export OSXCROSS_ROOT=${OSXCROSS_ROOT}
-          export CC=${OSXCROSS_ROOT}/target/bin/o64-clang
-          export CXX=${OSXCROSS_ROOT}/target/bin/o64-clang++
-          
-          # Optionally, print the compiler paths to confirm they are correct
-          echo "Using C compiler: $CC"
-          echo "Using C++ compiler: $CXX"
-          
-          # Run CMake with the toolchain and OS X SDK settings
-          cmake -B build -S . \
-            -DCMAKE_TOOLCHAIN_FILE=cmake/darwin-toolchain.cmake \
-            -DCMAKE_SYSTEM_NAME=Darwin \
-            -DCMAKE_OSX_ARCHITECTURES=x86_64 \
-            -DCMAKE_C_COMPILER="$CC" \
-            -DCMAKE_CXX_COMPILER="$CXX" \
-            -DCMAKE_OSX_SYSROOT="${OSXCROSS_ROOT}/target/SDK/MacOSX11.3.sdk" \
-            -DVERSION=${{ needs.version.outputs.version }}
-
+          cmake -B build \
+            -DOPENSSL_ROOT_DIR=$(brew --prefix openssl) \
+            -DVERSION=${{needs.version.outputs.version}}
       - name: Build
         run: cmake --build build
-
-      - name: Check binary
-        run: test -f build/nosh
-
+      - name: Test binary
+        run: |
+          test -f build/nosh
+          ./build/nosh --version || true
       - uses: actions/upload-artifact@v4
         with:
           name: nosh-macos
-          path: |
-            build/nosh*
-            build/*.dylib
+          path: build/nosh*
 
   build-windows:
     needs: version
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v3
-      
-      - name: Install MinGW Dependencies
+      - name: Install dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake gcc-mingw-w64 g++-mingw-w64 make mingw-w64-tools
-
-      - name: Install MinGW mbedtls
+          vcpkg install readline:x64-windows mbedtls:x64-windows argon2:x64-windows
+      - name: Configure CMake
         run: |
-          git clone --depth 1 --branch v3.5.2 https://github.com/Mbed-TLS/mbedtls.git
-          cd mbedtls
-          mkdir build && cd build
-          # Generate build files
-          cmake .. \
-            -DCMAKE_INSTALL_PREFIX=/usr/x86_64-w64-mingw32 \
-            -DCMAKE_TOOLCHAIN_FILE=../../cmake/windows-toolchain.cmake \
-            -DCMAKE_SYSTEM_NAME=Windows \
-            -DUSE_SHARED_MBEDTLS_LIBRARY=ON \
-            -DENABLE_PROGRAMS=OFF \
-            -DENABLE_TESTING=OFF \
-            -DGEN_FILES=ON \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DMBEDTLS_FATAL_WARNINGS=OFF \
-            -DINSTALL_MBEDTLS_HEADERS=ON
-          # Build and install
-          cmake --build . -j$(nproc)
-          sudo cmake --install .
-          # Ensure CMake can find mbedtls
-          sudo mkdir -p /usr/x86_64-w64-mingw32/lib/cmake/MbedTLS
-          sudo cp *.cmake /usr/x86_64-w64-mingw32/lib/cmake/MbedTLS/
-          cd ../..
-
-      - name: Install MinGW Argon2
-        run: |
-          git clone --depth 1 https://github.com/P-H-C/phc-winner-argon2.git
-          cd phc-winner-argon2
-          
-          # Build DLL and static lib with MinGW
-          x86_64-w64-mingw32-gcc -shared -o libargon2.dll \
-            -Iinclude -Isrc \
-            src/argon2.c src/core.c src/blake2/blake2b.c \
-            src/thread.c src/encoding.c src/opt.c \
-            -Wl,--out-implib,libargon2.dll.a
-          
-          x86_64-w64-mingw32-gcc -c -Iinclude -Isrc \
-            src/argon2.c src/core.c src/blake2/blake2b.c \
-            src/thread.c src/encoding.c src/opt.c
-          x86_64-w64-mingw32-ar rcs libargon2.a *.o
-          
-          # Install files
-          sudo mkdir -p /usr/x86_64-w64-mingw32/{include,lib,bin}
-          sudo cp include/argon2.h /usr/x86_64-w64-mingw32/include/
-          sudo cp libargon2.dll.a /usr/x86_64-w64-mingw32/lib/
-          sudo cp libargon2.a /usr/x86_64-w64-mingw32/lib/
-          sudo cp libargon2.dll /usr/x86_64-w64-mingw32/bin/
-          cd ..
-
-      - name: Configure CMake 
-        run: |
-          cmake -B build -S . \
-          -DCMAKE_TOOLCHAIN_FILE=cmake/windows-toolchain.cmake \
-          -DCMAKE_SYSTEM_NAME=Windows \
-          -DCMAKE_PREFIX_PATH=/usr/x86_64-w64-mingw32 \
-          -DCMAKE_BUILD_TYPE=Release \
-          -Dmbedtls_DIR=/usr/x86_64-w64-mingw32/lib/cmake/MbedTLS \
-          -DVERSION=${{needs.version.outputs.version}}
-
+          cmake -B build -S . `
+            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
+            -DVERSION=${{needs.version.outputs.version}}
       - name: Build
-        run: cmake --build build
-
-      - name: Check binary
-        run: test -f build/nosh.exe
-
+        run: cmake --build build --config Release
+      - name: Test binary
+        run: |
+          if (!(Test-Path "build/Release/nosh.exe")) { exit 1 }
+          .\build\Release\nosh.exe --version
       - uses: actions/upload-artifact@v4
         with:
           name: nosh-windows
           path: |
-            build/nosh.exe
-            build/*.dll
+            build/Release/nosh.exe
+            build/Release/*.dll
