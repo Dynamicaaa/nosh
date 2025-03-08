@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
-#include <unistd.h>
 #include "nosh.h"
 #include "builtins.h"
 #include "executor.h"
@@ -11,6 +10,14 @@
 #include "aliases.h"
 #include "password.h"
 #include "environment.h"
+
+#ifdef _WIN32
+#include <windows.h>
+#include <lmcons.h>
+#define getlogin() getenv("USERNAME")
+#else
+#include <unistd.h>
+#endif
 
 #ifdef _WIN32
 #include <readline/readline.h>
