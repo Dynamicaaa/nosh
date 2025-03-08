@@ -71,9 +71,11 @@ jobs:
         if [ ! -f "/usr/local/bin/brew" ] && [ "${{ matrix.arch }}" = "x64" ]; then
           cd /tmp
           mkdir homebrew && curl -L https://github.com/Homebrew/brew/tarball/master | tar xz --strip 1 -C homebrew
-          sudo mv homebrew /usr/local/Homebrew
-          sudo ln -s /usr/local/Homebrew/bin/brew /usr/local/bin/brew
-          sudo chown -R $(whoami) /usr/local/Homebrew
+          sudo mkdir -p /usr/local/Homebrew /usr/local/var
+          sudo mv homebrew/* /usr/local/Homebrew/
+          sudo ln -sf /usr/local/Homebrew/bin/brew /usr/local/bin/brew
+          sudo chown -R $(whoami) /usr/local/Homebrew /usr/local/var
+          sudo chmod -R 755 /usr/local/var
         fi
         
         # Set Homebrew prefix based on architecture
