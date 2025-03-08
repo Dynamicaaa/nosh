@@ -53,11 +53,22 @@ add_executable(nosh ${SOURCES})
 # Platform-specific settings
 if(WIN32)
     target_link_libraries(nosh PRIVATE 
-        crypt32
+        ws2_32          # For socket functions
+        iphlpapi        # For GetAdaptersInfo
+        bcrypt         # For BCryptGenRandom
+        pdcurses       # For terminal functions
+        crypt32        # For crypto functions
         mbedtls
-        mbedcrypto
+        mbedcrypto 
         mbedx509
         argon2
+    )
+    
+    # Add Windows-specific compile definitions
+    target_compile_definitions(nosh PRIVATE 
+        _WIN32
+        WIN32_LEAN_AND_MEAN
+        _GNU_SOURCE
     )
 elseif(APPLE)
     find_library(SECURITY_FRAMEWORK Security)
