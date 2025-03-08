@@ -18,3 +18,4 @@ cmake_layout
 [tool_requires]
 cmake/3.27.0
 ninja/1.11.1
+gcc/13.2
