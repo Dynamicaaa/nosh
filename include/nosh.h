@@ -6,7 +6,6 @@
 // Platform-specific includes
 #ifdef _WIN32
     #include <windows.h>
-    // Remove PATH_MAX definition since it's already defined
     #include <direct.h>
     #define getcwd _getcwd
     #define chdir _chdir
@@ -15,6 +14,9 @@
     #define unlink _unlink
     // Windows glob emulation
     #define GLOB_NOMATCH 3
+    #ifndef GLOB_TILDE
+        #define GLOB_TILDE 0x0800
+    #endif
     typedef struct {
         size_t gl_pathc;
         char **gl_pathv;
