@@ -97,7 +97,8 @@ jobs:
           -DCMAKE_PREFIX_PATH=/mingw64 \
           -DCMAKE_LIBRARY_PATH=/mingw64/lib \
           -DCMAKE_INCLUDE_PATH="/mingw64/include;/mingw64/include/readline" \
-          -DREADLINE_ROOT=/mingw64
+          -DREADLINE_ROOT=/mingw64 \
+          -DCMAKE_EXE_LINKER_FLAGS="-lws2_32"
 
     - name: Build
       if: matrix.os == 'windows-latest'

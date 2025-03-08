@@ -14,7 +14,10 @@
 #ifdef _WIN32
 #include <windows.h>
 #include <lmcons.h>
+#include <winsock2.h>
+#include <ws2tcpip.h>
 #define getlogin() getenv("USERNAME")
+#pragma comment(lib, "ws2_32.lib")
 #else
 #include <unistd.h>
 #endif
