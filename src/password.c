@@ -6,6 +6,11 @@
 #include "password.h"
 #include "cobalt.h"
 
+#ifdef _WIN32
+    #include <direct.h>
+    #define mkdir(path, mode) _mkdir(path)
+#endif
+
 #define SALT_SIZE 16
 #define IV_SIZE 16
 #define KEY_SIZE 32
