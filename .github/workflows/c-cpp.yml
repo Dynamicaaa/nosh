@@ -34,6 +34,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0  # Fetch all history to get git commit info
 
     - name: Install Dependencies (Ubuntu)
       if: matrix.os == 'ubuntu-latest'
@@ -71,6 +73,12 @@ jobs:
           mingw-w64-x86_64-ncurses
           mingw-w64-x86_64-pdcurses
 
+    - name: Configure Git (Windows)
+      if: matrix.os == 'windows-latest'
+      shell: msys2 {0}
+      run: |
+        git config --global --add safe.directory '*'
+
     - name: Configure CMake (Unix)
       if: matrix.os != 'windows-latest'
       run: |
@@ -102,13 +110,19 @@ jobs:
           -DREADLINE_ROOT=/mingw64 \
           -DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++ -Wl,-Bstatic -lpdcurses -lreadline -lmbedtls -lmbedcrypto -lmbedx509 -largon2 -Wl,-Bdynamic -lws2_32 -liphlpapi -lbcrypt"
 
-    - name: Build
+    # Add build steps for all platforms
+    - name: Build (Unix)
+      if: matrix.os != 'windows-latest'
+      run: |
+        cd build && make VERBOSE=1
+
+    - name: Build (Windows)
       if: matrix.os == 'windows-latest'
       shell: msys2 {0}
       run: |
         cd build && mingw32-make VERBOSE=1
 
-    # Add version test steps for each platform
+    # Version test steps
     - name: Test Version (Unix)
       if: matrix.os != 'windows-latest'
       run: |
