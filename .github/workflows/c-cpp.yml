@@ -66,42 +66,59 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: Set up OSXCross
         run: |
+          # Clone the osxcross repository and build it
           git clone https://github.com/tpoechtrager/osxcross
           cd osxcross
           wget -nc https://github.com/phracker/MacOSX-SDKs/releases/download/11.3/MacOSX11.3.sdk.tar.xz
           mkdir -p tarballs
           mv MacOSX11.3.sdk.tar.xz tarballs/
           UNATTENDED=1 ./build.sh
+          # Save the absolute path of osxcross to an environment variable for later steps
           echo "OSXCROSS_ROOT=$(pwd)" >> $GITHUB_ENV
+          # Add the osxcross bin directory to PATH
           echo "$(pwd)/target/bin" >> $GITHUB_PATH
+          # Go back to the repository root
           cd ..
+          
+      - name: Debug OSXCROSS_ROOT
+        run: |
+          # Print the value of OSXCROSS_ROOT to ensure it is set correctly
+          echo "OSXCROSS_ROOT is set to: $OSXCROSS_ROOT"
 
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake make clang llvm
 
-      - name: Configure CMake
+      - name: Configure CMake for macOS build
         env:
+          # Retrieve OSXCROSS_ROOT from the environment (set in the previous step)
           OSXCROSS_ROOT: ${{ env.OSXCROSS_ROOT }}
+          # Build absolute paths for the cross-compilers
           CC: ${{ env.OSXCROSS_ROOT }}/target/bin/o64-clang
           CXX: ${{ env.OSXCROSS_ROOT }}/target/bin/o64-clang++
         run: |
-          # Verify OSXCross environment
-          ls -la $OSXCROSS_ROOT/target/bin/
-          echo "PATH=$PATH"
+          # Export the variables to be used in this shell session
+          export OSXCROSS_ROOT=${OSXCROSS_ROOT}
+          export CC=${OSXCROSS_ROOT}/target/bin/o64-clang
+          export CXX=${OSXCROSS_ROOT}/target/bin/o64-clang++
           
+          # Optionally, print the compiler paths to confirm they are correct
+          echo "Using C compiler: $CC"
+          echo "Using C++ compiler: $CXX"
+          
+          # Run CMake with the toolchain and OS X SDK settings
           cmake -B build -S . \
-          -DCMAKE_TOOLCHAIN_FILE=cmake/darwin-toolchain.cmake \
-          -DCMAKE_SYSTEM_NAME=Darwin \
-          -DCMAKE_OSX_ARCHITECTURES=x86_64 \
-          -DCMAKE_C_COMPILER="${CC}" \
-          -DCMAKE_CXX_COMPILER="${CXX}" \
-          -DCMAKE_OSX_SYSROOT="${OSXCROSS_ROOT}/target/SDK/MacOSX11.3.sdk" \
-          -DVERSION=${{needs.version.outputs.version}}
+            -DCMAKE_TOOLCHAIN_FILE=cmake/darwin-toolchain.cmake \
+            -DCMAKE_SYSTEM_NAME=Darwin \
+            -DCMAKE_OSX_ARCHITECTURES=x86_64 \
+            -DCMAKE_C_COMPILER="$CC" \
+            -DCMAKE_CXX_COMPILER="$CXX" \
+            -DCMAKE_OSX_SYSROOT="${OSXCROSS_ROOT}/target/SDK/MacOSX11.3.sdk" \
+            -DVERSION=${{ needs.version.outputs.version }}
 
       - name: Build
         run: cmake --build build
@@ -184,7 +201,7 @@ jobs:
           -DCMAKE_SYSTEM_NAME=Windows \
           -DCMAKE_PREFIX_PATH=/usr/x86_64-w64-mingw32 \
           -DCMAKE_BUILD_TYPE=Release \
-          -DMbedTLS_DIR=/usr/x86_64-w64-mingw32/lib/cmake/MbedTLS \
+          -Dmbedtls_DIR=/usr/x86_64-w64-mingw32/lib/cmake/MbedTLS \
           -DVERSION=${{needs.version.outputs.version}}
 
       - name: Build
