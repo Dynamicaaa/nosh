@@ -21,29 +21,55 @@ static int master_key_initialized = 0;
 // Function declaration
 int decrypt(const unsigned char* ciphertext, size_t ciphertext_len, const unsigned char* tag, const unsigned char* key, const unsigned char* iv, unsigned char* plaintext);
 
-// Get password without echo
-char* get_password(const char* prompt) {
-    static char password[256];
-    struct termios old, new;
+#ifdef _WIN32
+#include <windows.h>
+#include <conio.h>
+#else
+#include <termios.h>
+#include <unistd.h>
+#endif
 
-    // Turn off echo
+// Get password without echoing to screen
+char *get_password(const char *prompt) {
+    static char password[1024];
+    printf("%s", prompt);
+
+#ifdef _WIN32
+    // Windows implementation using _getch
+    int i = 0;
+    while (1) {
+        char c = _getch();
+        if (c == '\r' || c == '\n') {
+            password[i] = '\0';
+            printf("\n");
+            break;
+        }
+        else if (c == '\b' && i > 0) { // Handle backspace
+            printf("\b \b");
+            i--;
+        }
+        else if (c >= ' ' && c <= '~' && i < sizeof(password)-1) {
+            password[i++] = c;
+            printf("*");
+        }
+    }
+#else
+    // Unix implementation using termios
+    struct termios old, new;
     tcgetattr(STDIN_FILENO, &old);
     new = old;
     new.c_lflag &= ~ECHO;
     tcsetattr(STDIN_FILENO, TCSANOW, &new);
 
-    printf("%s", prompt);
     if (fgets(password, sizeof(password), stdin) == NULL) {
-        // Handle error or EOF
         password[0] = '\0';
     } else {
-        // Remove newline
         password[strcspn(password, "\n")] = 0;
     }
 
-    // Restore terminal
     tcsetattr(STDIN_FILENO, TCSANOW, &old);
     printf("\n");
+#endif
 
     return password;
 }
