@@ -48,8 +48,10 @@ jobs:
         echo "MBEDTLS_PREFIX=$(brew --prefix mbedtls)" >> $GITHUB_ENV
         echo "ARGON2_PREFIX=$(brew --prefix argon2)" >> $GITHUB_ENV
         echo "HOMEBREW_PREFIX=$(brew --prefix)" >> $GITHUB_ENV
-        # Add pkg-config path for mbedtls
-        echo "PKG_CONFIG_PATH=$(brew --prefix mbedtls)/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
+        # Configure pkg-config to find mbedtls
+        echo "PKG_CONFIG_PATH=$(brew --prefix mbedtls)/lib/pkgconfig:$(brew --prefix openssl)/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
+        echo "LDFLAGS=-L$(brew --prefix mbedtls)/lib -L$(brew --prefix argon2)/lib" >> $GITHUB_ENV
+        echo "CFLAGS=-I$(brew --prefix mbedtls)/include -I$(brew --prefix argon2)/include" >> $GITHUB_ENV
 
     - name: Install Dependencies (Windows)
       if: matrix.os == 'windows-latest'
@@ -72,7 +74,9 @@ jobs:
             -DOPENSSL_ROOT_DIR=$(brew --prefix openssl) \
             -DCMAKE_FIND_FRAMEWORK=LAST \
             -DCMAKE_INSTALL_NAME_DIR=@executable_path/../lib \
-            -DCMAKE_BUILD_WITH_INSTALL_NAME_DIR=ON
+            -DCMAKE_BUILD_WITH_INSTALL_NAME_DIR=ON \
+            -DCMAKE_LIBRARY_PATH="$(brew --prefix mbedtls)/lib;$(brew --prefix argon2)/lib" \
+            -DCMAKE_INCLUDE_PATH="$(brew --prefix mbedtls)/include;$(brew --prefix argon2)/include"
         else
           cmake -B build -DCMAKE_BUILD_TYPE=Release
         fi
