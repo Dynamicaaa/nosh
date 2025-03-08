@@ -69,9 +69,9 @@ jobs:
         
         # Create and set permissions for Homebrew directories
         if [ "${{ matrix.arch }}" = "x64" ]; then
-          sudo mkdir -p /usr/local/opt /usr/local/share/man/man1
-          sudo chown -R $(whoami) /usr/local/opt /usr/local/share
-          sudo chmod u+w /usr/local/opt /usr/local/share/man/man1
+          sudo mkdir -p /usr/local/{opt,share/man/man1,var/homebrew}
+          sudo chown -R $(whoami) /usr/local/opt /usr/local/share /usr/local/var
+          sudo chmod -R u+w /usr/local/opt /usr/local/share /usr/local/var
           
           # Install Homebrew if not present
           if [ ! -f "/usr/local/bin/brew" ]; then
@@ -81,6 +81,8 @@ jobs:
             sudo mv homebrew/* /usr/local/Homebrew/
             sudo ln -sf /usr/local/Homebrew/bin/brew /usr/local/bin/brew
             sudo chown -R $(whoami) /usr/local/Homebrew
+            sudo mkdir -p /usr/local/var/homebrew/locks
+            sudo chown -R $(whoami) /usr/local/var/homebrew
           fi
           
           HOMEBREW_PREFIX="/usr/local"
