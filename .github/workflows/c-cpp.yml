@@ -87,15 +87,20 @@ jobs:
       - name: Configure CMake
         env:
           OSXCROSS_ROOT: ${{ env.OSXCROSS_ROOT }}
+          CC: ${{ env.OSXCROSS_ROOT }}/target/bin/o64-clang
+          CXX: ${{ env.OSXCROSS_ROOT }}/target/bin/o64-clang++
         run: |
-          export PATH="$OSXCROSS_ROOT/target/bin:$PATH"
+          # Verify OSXCross environment
+          ls -la $OSXCROSS_ROOT/target/bin/
+          echo "PATH=$PATH"
+          
           cmake -B build -S . \
           -DCMAKE_TOOLCHAIN_FILE=cmake/darwin-toolchain.cmake \
           -DCMAKE_SYSTEM_NAME=Darwin \
           -DCMAKE_OSX_ARCHITECTURES=x86_64 \
-          -DCMAKE_C_COMPILER="$OSXCROSS_ROOT/target/bin/o64-clang" \
-          -DCMAKE_CXX_COMPILER="$OSXCROSS_ROOT/target/bin/o64-clang++" \
-          -DCMAKE_OSX_SYSROOT="$OSXCROSS_ROOT/target/SDK/MacOSX11.3.sdk" \
+          -DCMAKE_C_COMPILER="${CC}" \
+          -DCMAKE_CXX_COMPILER="${CXX}" \
+          -DCMAKE_OSX_SYSROOT="${OSXCROSS_ROOT}/target/SDK/MacOSX11.3.sdk" \
           -DVERSION=${{needs.version.outputs.version}}
 
       - name: Build
@@ -117,16 +122,15 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       
-      - name: Install dependencies
+      - name: Install MinGW Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake gcc-mingw-w64 g++-mingw-w64 make mingw-w64-tools
 
       - name: Install MinGW mbedtls
         run: |
-          wget https://github.com/Mbed-TLS/mbedtls/archive/refs/tags/v3.5.2.tar.gz
-          tar xf v3.5.2.tar.gz
-          cd mbedtls-3.5.2
+          git clone --depth 1 --branch v3.5.2 https://github.com/Mbed-TLS/mbedtls.git
+          cd mbedtls
           mkdir build && cd build
           cmake .. \
             -DCMAKE_INSTALL_PREFIX=/usr/x86_64-w64-mingw32 \
@@ -136,34 +140,26 @@ jobs:
             -DENABLE_PROGRAMS=OFF \
             -DENABLE_TESTING=OFF \
             -DGEN_FILES=ON \
-            -DCMAKE_BUILD_TYPE=Release
-          make -j$(nproc)
-          sudo make install
-          # Copy config file
-          sudo cp $PWD/cmake/mbedtlsConfig.cmake /usr/x86_64-w64-mingw32/lib/cmake/mbedtls/
+            -DCMAKE_BUILD_TYPE=Release \
+            -DMBEDTLS_FATAL_WARNINGS=OFF
+          cmake --build . -j$(nproc)
+          sudo cmake --install .
           cd ../..
 
       - name: Install MinGW Argon2
         run: |
-          git clone https://github.com/P-H-C/phc-winner-argon2.git
+          git clone --depth 1 https://github.com/P-H-C/phc-winner-argon2.git
           cd phc-winner-argon2
-          # Build with MinGW and generate DLL
-          x86_64-w64-mingw32-gcc -shared -o libargon2.dll \
-            -Iinclude -Isrc \
-            src/argon2.c src/core.c src/blake2/blake2b.c \
-            src/thread.c src/encoding.c src/opt.c \
-            -Wl,--out-implib,libargon2.dll.a
-          # Build static library
-          x86_64-w64-mingw32-gcc -c -Iinclude -Isrc \
-            src/argon2.c src/core.c src/blake2/blake2b.c \
-            src/thread.c src/encoding.c src/opt.c
-          x86_64-w64-mingw32-ar rcs libargon2.a *.o
-          # Copy header and libraries
-          sudo cp include/argon2.h /usr/x86_64-w64-mingw32/include/
-          sudo cp libargon2.dll /usr/x86_64-w64-mingw32/bin/
-          sudo cp libargon2.dll.a /usr/x86_64-w64-mingw32/lib/libargon2.dll.a
-          sudo cp libargon2.a /usr/x86_64-w64-mingw32/lib/
-          cd ..
+          mkdir build && cd build
+          cmake .. \
+            -DCMAKE_INSTALL_PREFIX=/usr/x86_64-w64-mingw32 \
+            -DCMAKE_TOOLCHAIN_FILE=../../cmake/windows-toolchain.cmake \
+            -DCMAKE_SYSTEM_NAME=Windows \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DARGON2_BUILD_SHARED_LIBS=ON
+          cmake --build . -j$(nproc)
+          sudo cmake --install .
+          cd ../..
 
       - name: Configure CMake 
         run: |
