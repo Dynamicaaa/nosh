@@ -32,6 +32,63 @@
 
     int glob(const char *pattern, int flags, int (*errfunc)(const char *, int), glob_t *pglob);
     void globfree(glob_t *pglob);
+
+    // Windows glob implementation
+    #include <string.h>
+    #include <stdlib.h>
+
+    int glob(const char *pattern, int flags, int (*errfunc)(const char *, int), glob_t *pglob) {
+        WIN32_FIND_DATA find_data;
+        HANDLE hFind;
+        int count = 0;
+        char **pathv = NULL;
+
+        pglob->gl_pathc = 0;
+        pglob->gl_pathv = NULL;
+
+        hFind = FindFirstFile(pattern, &find_data);
+        if (hFind == INVALID_HANDLE_VALUE) {
+            return GLOB_NOMATCH;
+        }
+
+        do {
+            char **new_pathv = realloc(pathv, (count + 1) * sizeof(char *));
+            if (!new_pathv) {
+                if (pathv) {
+                    for (int i = 0; i < count; i++) free(pathv[i]);
+                    free(pathv);
+                }
+                FindClose(hFind);
+                return GLOB_NOSPACE;
+            }
+            pathv = new_pathv;
+            pathv[count] = _strdup(find_data.cFileName);
+            if (!pathv[count]) {
+                for (int i = 0; i < count; i++) free(pathv[i]);
+                free(pathv);
+                FindClose(hFind);
+                return GLOB_NOSPACE;
+            }
+            count++;
+        } while (FindNextFile(hFind, &find_data));
+
+        FindClose(hFind);
+        pglob->gl_pathc = count;
+        pglob->gl_pathv = pathv;
+        return 0;
+    }
+
+    void globfree(glob_t *pglob) {
+        if (!pglob) return;
+        if (pglob->gl_pathv) {
+            for (size_t i = 0; i < pglob->gl_pathc; i++) {
+                free(pglob->gl_pathv[i]);
+            }
+            free(pglob->gl_pathv);
+        }
+        pglob->gl_pathc = 0;
+        pglob->gl_pathv = NULL;
+    }
 #else
     #include <unistd.h>
     #include <glob.h>
