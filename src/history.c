@@ -26,7 +26,7 @@ char *get_history(int index) {
     return history_list[index];
 }
 
-void clear_history(void) {
+void nosh_clear_history(void) {  // Renamed to avoid conflict
     for (int i = 0; i < history_count; i++) {
         free(history_list[i]);
     }
