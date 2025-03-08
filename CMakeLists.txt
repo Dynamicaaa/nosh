@@ -154,13 +154,7 @@ if(APPLE)
     if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
         set(HOMEBREW_PREFIX "/usr/local")
         set(CMAKE_OSX_ARCHITECTURES "x86_64")
-    else()
-        set(HOMEBREW_PREFIX "/opt/homebrew")
-        set(CMAKE_OSX_ARCHITECTURES "arm64")
-    endif()
-    
-    # Get MbedTLS and Argon2 paths from architecture-specific Homebrew
-    if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+        
         execute_process(
             COMMAND /usr/local/bin/brew --prefix mbedtls
             OUTPUT_VARIABLE MBEDTLS_PREFIX
@@ -171,7 +165,38 @@ if(APPLE)
             OUTPUT_VARIABLE ARGON2_PREFIX
             OUTPUT_STRIP_TRAILING_WHITESPACE
         )
+        
+        # Add x86_64 specific paths
+        include_directories(
+            ${HOMEBREW_PREFIX}/include
+            ${MBEDTLS_PREFIX}/include
+            ${ARGON2_PREFIX}/include
+        )
+        
+        link_directories(
+            ${HOMEBREW_PREFIX}/lib
+            ${MBEDTLS_PREFIX}/lib
+            ${ARGON2_PREFIX}/lib
+        )
+        
+        # Remove duplicate target_link_libraries calls
+        target_link_libraries(nosh PRIVATE
+            ${SECURITY_FRAMEWORK}
+            ${CORE_FOUNDATION}
+            "-framework CoreFoundation"
+            "-framework Security"
+            "-framework CoreServices"
+            "${MBEDTLS_PREFIX}/lib/libmbedtls.dylib"
+            "${MBEDTLS_PREFIX}/lib/libmbedcrypto.dylib"
+            "${MBEDTLS_PREFIX}/lib/libmbedx509.dylib"
+            "${ARGON2_PREFIX}/lib/libargon2.dylib"
+            ${CURSES_LIBRARIES}
+            ${READLINE_LIBRARY}
+        )
     else()
+        set(HOMEBREW_PREFIX "/opt/homebrew")
+        set(CMAKE_OSX_ARCHITECTURES "arm64")
+        
         execute_process(
             COMMAND /opt/homebrew/bin/brew --prefix mbedtls
             OUTPUT_VARIABLE MBEDTLS_PREFIX
@@ -182,22 +207,35 @@ if(APPLE)
             OUTPUT_VARIABLE ARGON2_PREFIX
             OUTPUT_STRIP_TRAILING_WHITESPACE
         )
+        
+        # Add arm64 specific paths
+        include_directories(
+            ${HOMEBREW_PREFIX}/include
+            ${MBEDTLS_PREFIX}/include
+            ${ARGON2_PREFIX}/include
+        )
+        
+        link_directories(
+            ${HOMEBREW_PREFIX}/lib
+            ${MBEDTLS_PREFIX}/lib
+            ${ARGON2_PREFIX}/lib
+        )
+        
+        # Remove duplicate target_link_libraries calls
+        target_link_libraries(nosh PRIVATE
+            ${SECURITY_FRAMEWORK}
+            ${CORE_FOUNDATION}
+            "-framework CoreFoundation"
+            "-framework Security"
+            "-framework CoreServices"
+            "${MBEDTLS_PREFIX}/lib/libmbedtls.dylib"
+            "${MBEDTLS_PREFIX}/lib/libmbedcrypto.dylib"
+            "${MBEDTLS_PREFIX}/lib/libmbedx509.dylib"
+            "${ARGON2_PREFIX}/lib/libargon2.dylib"
+            ${CURSES_LIBRARIES}
+            ${READLINE_LIBRARY}
+        )
     endif()
-    
-    # Remove duplicate target_link_libraries calls
-    target_link_libraries(nosh PRIVATE
-        ${SECURITY_FRAMEWORK}
-        ${CORE_FOUNDATION}
-        "-framework CoreFoundation"
-        "-framework Security"
-        "-framework CoreServices"
-        "${MBEDTLS_PREFIX}/lib/libmbedtls.dylib"
-        "${MBEDTLS_PREFIX}/lib/libmbedcrypto.dylib"
-        "${MBEDTLS_PREFIX}/lib/libmbedx509.dylib"
-        "${ARGON2_PREFIX}/lib/libargon2.dylib"
-        ${CURSES_LIBRARIES}
-        ${READLINE_LIBRARY}
-    )
     
     include_directories(
         ${HOMEBREW_PREFIX}/include
