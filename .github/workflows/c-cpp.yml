@@ -43,7 +43,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install conan
           conan profile detect --force
-          conan profile path default > conan_profile
 
       - name: Configure Conan Dependencies (macOS)
         if: runner.os == 'macOS'
@@ -67,12 +66,15 @@ jobs:
       - name: Configure Conan Dependencies (Unix)
         if: runner.os == 'Linux'
         run: |
+          mkdir -p build
           conan install . \
             --output-folder=build \
             --build=missing \
             -s build_type=Release \
             -s compiler=gcc \
-            -s compiler.libcxx=libstdc++11
+            -s compiler.libcxx=libstdc++11 \
+            -g CMakeToolchain \
+            -g CMakeDeps
 
       - name: Configure Conan Dependencies (Windows)
         if: runner.os == 'Windows'
@@ -85,9 +87,10 @@ jobs:
             -s compiler="Visual Studio"
 
       - name: Configure CMake (Unix)
-        if: runner.os != 'Windows'
+        if: runner.os == 'Linux'
         run: |
-          cmake -B build -DCMAKE_TOOLCHAIN_FILE=build/conan_toolchain.cmake \
+          cmake -B build \
+            -DCMAKE_TOOLCHAIN_FILE=build/conan_toolchain.cmake \
             -DCMAKE_BUILD_TYPE=Release \
             -DVERSION=${{needs.version.outputs.version}}
 

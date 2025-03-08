@@ -4,8 +4,8 @@ argon2/20190702
 readline/8.2
 
 [generators]
-CMakeDeps
 CMakeToolchain
+CMakeDeps
 
 [options]
 mbedtls/*:shared=True
@@ -14,3 +14,7 @@ readline/*:shared=True
 
 [layout]
 cmake_layout
+
+[tool_requires]
+cmake/3.27.0
+ninja/1.11.1
