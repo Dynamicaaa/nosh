@@ -4,6 +4,16 @@
 #include <unistd.h>
 #include "environment.h"
 
+// Handle platform-specific environment functions
+#ifdef _WIN32
+    #include <windows.h>
+    #define setenv(name, value, overwrite) _putenv_s(name, value)
+    extern char **_environ;
+    #define environ _environ
+#else
+    extern char **environ;
+#endif
+
 // Load .noshrc configuration file
 void load_noshrc(void) {
     char noshrc_path[PATH_MAX];
@@ -60,27 +70,24 @@ int handle_export(const char *export_str) {
     if (export_str[i] == '=') i++;
 
     // Get the value part
-    j = 0;
     while (export_str[i] && j < 1023) {
-        // Handle quoted values
-        if ((export_str[i] == '"' || export_str[i] == '\'') && j == 0) {
-            char quote = export_str[i++];
-            while (export_str[i] && export_str[i] != quote && j < 1023) {
-                var_value[j++] = export_str[i++];
-            }
-            if (export_str[i] == quote) i++; // Skip closing quote
-        } else {
-            var_value[j++] = export_str[i++];
-        }
+        var_value[j++] = export_str[i++];
     }
     var_value[j] = '\0';
 
     // Set the environment variable
     if (var_name[0] != '\0') {
+        #ifdef _WIN32
+        if (_putenv_s(var_name, var_value) != 0) {
+            perror("export: _putenv_s");
+            return 0;
+        }
+        #else
         if (setenv(var_name, var_value, 1) != 0) {
             perror("export: setenv");
             return 0;
         }
+        #endif
     }
 
     return 1;
@@ -88,7 +95,6 @@ int handle_export(const char *export_str) {
 
 // Print all environment variables
 void print_environment(void) {
-    extern char **environ;
     char **env = environ;
 
     while (*env) {
