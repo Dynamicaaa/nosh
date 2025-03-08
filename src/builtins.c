@@ -1,4 +1,4 @@
-#include <glob.h>
+#include "nosh.h"  // Move this first to get platform-specific headers
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,7 +9,6 @@
 #include "builtins.h"
 #include "aliases.h"
 #include "history.h"
-#include "nosh.h"
 #include "password.h"
 #include "network.h"
 #include "environment.h"
