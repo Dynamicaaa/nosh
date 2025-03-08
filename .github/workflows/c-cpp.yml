@@ -104,6 +104,8 @@ jobs:
             -s build_type=Release \
             -s compiler=gcc \
             -s compiler.libcxx=libstdc++11 \
+            -s compiler.version=11 \
+            -s arch=x86_64 \
             -g CMakeToolchain \
             -g CMakeDeps
 
@@ -120,6 +122,7 @@ jobs:
       - name: Configure CMake (Unix)
         if: runner.os == 'Linux'
         run: |
+          source ~/.profile
           cmake -B build \
             -G Ninja \
             -DCMAKE_TOOLCHAIN_FILE=build/conan_toolchain.cmake \
