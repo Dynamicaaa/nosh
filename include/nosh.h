@@ -30,13 +30,8 @@
         int gl_flags;       /* Flags for globbing */
     } glob_t;
 
-    int glob(const char *pattern, int flags, int (*errfunc)(const char *, int), glob_t *pglob);
-    void globfree(glob_t *pglob);
-
-    // Windows glob implementation
-    #include <string.h>
-    #include <stdlib.h>
-
+    #ifdef GLOB_IMPLEMENTATION
+    // Implementation goes in only one source file
     int glob(const char *pattern, int flags, int (*errfunc)(const char *, int), glob_t *pglob) {
         WIN32_FIND_DATA find_data;
         HANDLE hFind;
@@ -89,6 +84,11 @@
         pglob->gl_pathc = 0;
         pglob->gl_pathv = NULL;
     }
+    #else
+    // Other files just get the declarations
+    extern int glob(const char *pattern, int flags, int (*errfunc)(const char *, int), glob_t *pglob);
+    extern void globfree(glob_t *pglob);
+    #endif
 #else
     #include <unistd.h>
     #include <glob.h>

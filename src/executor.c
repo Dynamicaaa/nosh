@@ -1,3 +1,4 @@
+#define GLOB_IMPLEMENTATION  // Only define implementation in one file
 #include "nosh.h"  // Must be first to get platform-specific headers
 #include <stdio.h>
 #include <stdlib.h>
