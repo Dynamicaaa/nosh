@@ -91,18 +91,48 @@ else()
     )
 endif()
 
-# Common dependencies from Conan
-find_package(mbedtls CONFIG REQUIRED)
-find_package(Argon2 CONFIG REQUIRED)
-find_package(Readline CONFIG REQUIRED)
-
-target_link_libraries(nosh PRIVATE
-    mbedtls::mbedtls 
-    mbedtls::mbedcrypto
-    mbedtls::mbedx509
-    argon2::argon2
-    Readline::Readline
-)
+# Remove Conan dependencies section
+if(WIN32)
+    target_link_libraries(nosh PRIVATE 
+        crypt32
+        mbedtls
+        mbedcrypto
+        mbedx509
+        argon2
+    )
+elseif(APPLE)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(MBEDTLS REQUIRED mbedtls)
+    pkg_check_modules(ARGON2 REQUIRED libargon2)
+    
+    target_link_libraries(nosh PRIVATE
+        ${SECURITY_FRAMEWORK}
+        ${CORE_FOUNDATION}
+        "-framework CoreFoundation"
+        "-framework Security"
+        "-framework CoreServices"
+        ${CURSES_LIBRARIES}
+        ${READLINE_LIBRARY}
+        mbedtls
+        mbedcrypto
+        mbedx509
+        argon2
+    )
+else()
+    find_package(OpenSSL REQUIRED)
+    pkg_check_modules(MBEDTLS REQUIRED mbedtls)
+    pkg_check_modules(ARGON2 REQUIRED libargon2)
+    
+    target_link_libraries(nosh PRIVATE
+        OpenSSL::Crypto
+        ${CURSES_LIBRARIES}
+        ${READLINE_LIBRARY}
+        mbedtls
+        mbedcrypto
+        mbedx509
+        argon2
+    )
+endif()
 
 # Handle Argon2 library path for macOS
 if(APPLE)

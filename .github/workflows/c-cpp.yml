@@ -36,27 +36,25 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential cmake gcc g++ \
             libssl-dev libreadline-dev libncurses5-dev \
-            ninja-build
-            
+            ninja-build libmbedtls-dev libargon2-dev
+
       - name: Install Dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew install cmake ninja openssl@3 readline ncurses argon2
+          brew install cmake ninja openssl@3 readline ncurses argon2 mbedtls
 
-      - name: Configure CMake (Linux)
-        if: runner.os == 'Linux'
+      - name: Install Dependencies (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          vcpkg install mbedtls:x64-windows argon2:x64-windows
+          echo "CMAKE_TOOLCHAIN_FILE=$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" >> $env:GITHUB_ENV
+
+      - name: Configure CMake (Linux/Windows)
+        if: runner.os != 'macOS'
         run: |
           cmake -B build -S . \
             -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
-            -DVERSION=${{needs.version.outputs.version}}
-
-      - name: Configure CMake (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          cmake -B build -S . `
-            -DCMAKE_BUILD_TYPE=Release `
-            -DWINDOWS_BUILD=ON `
             -DVERSION=${{needs.version.outputs.version}}
 
       - name: Configure CMake (macOS Universal)
@@ -66,13 +64,15 @@ jobs:
             -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_OSX_ARCHITECTURES=x86_64 \
-            -DVERSION=${{needs.version.outputs.version}}
-          
+            -DVERSION=${{needs.version.outputs.version}} \
+            -DUSE_BREW_LIBS=ON
+
           cmake -B build-arm64 -S . \
             -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_OSX_ARCHITECTURES=arm64 \
-            -DVERSION=${{needs.version.outputs.version}}
+            -DVERSION=${{needs.version.outputs.version}} \
+            -DUSE_BREW_LIBS=ON
 
       - name: Build (Unix/Windows)
         if: runner.os != 'macOS'
