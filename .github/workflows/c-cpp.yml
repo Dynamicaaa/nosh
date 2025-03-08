@@ -62,14 +62,28 @@ jobs:
     - name: Install Dependencies (macOS)
       if: matrix.os == 'macos-latest'
       run: |
-        brew install readline openssl mbedtls argon2 pkg-config
-        echo "MBEDTLS_PREFIX=$(brew --prefix mbedtls)" >> $GITHUB_ENV
-        echo "ARGON2_PREFIX=$(brew --prefix argon2)" >> $GITHUB_ENV
-        echo "HOMEBREW_PREFIX=$(brew --prefix)" >> $GITHUB_ENV
-        # Configure pkg-config to find mbedtls
-        echo "PKG_CONFIG_PATH=$(brew --prefix mbedtls)/lib/pkgconfig:$(brew --prefix openssl)/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
-        echo "LDFLAGS=-L$(brew --prefix mbedtls)/lib -L$(brew --prefix argon2)/lib" >> $GITHUB_ENV
-        echo "CFLAGS=-I$(brew --prefix mbedtls)/include -I$(brew --prefix argon2)/include" >> $GITHUB_ENV
+        # Install Rosetta 2 for x86_64 emulation on M1
+        if [ "${{ matrix.arch }}" = "x64" ] && [ "$(uname -m)" = "arm64" ]; then
+          softwareupdate --install-rosetta --agree-to-license
+        fi
+        
+        # Set Homebrew prefix based on architecture
+        if [ "${{ matrix.arch }}" = "x64" ]; then
+          HOMEBREW_PREFIX="/usr/local"
+          echo "HOMEBREW_PREFIX=/usr/local" >> $GITHUB_ENV
+          # Install x86_64 versions of dependencies
+          arch -x86_64 /usr/local/bin/brew install readline openssl mbedtls argon2 pkg-config
+        else
+          HOMEBREW_PREFIX="/opt/homebrew"
+          echo "HOMEBREW_PREFIX=/opt/homebrew" >> $GITHUB_ENV
+          brew install readline openssl mbedtls argon2 pkg-config
+        fi
+        
+        echo "MBEDTLS_PREFIX=$(${HOMEBREW_PREFIX}/bin/brew --prefix mbedtls)" >> $GITHUB_ENV
+        echo "ARGON2_PREFIX=$(${HOMEBREW_PREFIX}/bin/brew --prefix argon2)" >> $GITHUB_ENV
+        echo "PKG_CONFIG_PATH=$(${HOMEBREW_PREFIX}/bin/brew --prefix mbedtls)/lib/pkgconfig:$(${HOMEBREW_PREFIX}/bin/brew --prefix openssl)/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
+        echo "LDFLAGS=-L$(${HOMEBREW_PREFIX}/bin/brew --prefix mbedtls)/lib -L$(${HOMEBREW_PREFIX}/bin/brew --prefix argon2)/lib" >> $GITHUB_ENV
+        echo "CFLAGS=-I$(${HOMEBREW_PREFIX}/bin/brew --prefix mbedtls)/include -I$(${HOMEBREW_PREFIX}/bin/brew --prefix argon2)/include" >> $GITHUB_ENV
 
     - name: Install Dependencies (Windows)
       if: matrix.os == 'windows-latest'
