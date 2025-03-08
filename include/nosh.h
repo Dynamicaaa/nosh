@@ -13,29 +13,30 @@
     #define pclose _pclose
     #define unlink _unlink
     
-    // Windows glob implementation
+    // Windows glob emulation
     #define GLOB_NOMATCH 3
     #define GLOB_NOSPACE 1
     #define GLOB_ABORTED 2
     #define GLOB_TILDE 0x0800
     #define GLOB_NOSORT 0x0010
+    #define GLOB_ERR 1
+    #define GLOB_MARK 0x0020
+    #define GLOB_PERIOD 0x0040
     
     typedef struct {
         size_t gl_pathc;    /* Count of paths matched */
         char **gl_pathv;    /* List of matched pathnames */
         size_t gl_offs;     /* Slots to reserve in gl_pathv */
+        int gl_flags;       /* Flags for globbing */
     } glob_t;
 
-    int glob(const char *pattern, int flags, void *unused, glob_t *pglob);
+    int glob(const char *pattern, int flags, int (*errfunc)(const char *, int), glob_t *pglob);
     void globfree(glob_t *pglob);
 #else
     #include <unistd.h>
     #include <glob.h>
     #include <sys/wait.h>
     #include <limits.h>
-    #ifndef PATH_MAX
-        #define PATH_MAX 4096
-    #endif
 #endif
 
 // Global configuration and limits.
