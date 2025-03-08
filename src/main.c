@@ -13,7 +13,8 @@
 #include "environment.h"
 
 #ifdef _WIN32
-#include <editline/readline.h>
+#include <readline/readline.h>
+#include <readline/history.h>
 #else
 #include <readline/readline.h>
 #include <readline/history.h>
