@@ -132,6 +132,7 @@ jobs:
           git clone --depth 1 --branch v3.5.2 https://github.com/Mbed-TLS/mbedtls.git
           cd mbedtls
           mkdir build && cd build
+          # Generate build files
           cmake .. \
             -DCMAKE_INSTALL_PREFIX=/usr/x86_64-w64-mingw32 \
             -DCMAKE_TOOLCHAIN_FILE=../../cmake/windows-toolchain.cmake \
@@ -141,9 +142,14 @@ jobs:
             -DENABLE_TESTING=OFF \
             -DGEN_FILES=ON \
             -DCMAKE_BUILD_TYPE=Release \
-            -DMBEDTLS_FATAL_WARNINGS=OFF
+            -DMBEDTLS_FATAL_WARNINGS=OFF \
+            -DINSTALL_MBEDTLS_HEADERS=ON
+          # Build and install
           cmake --build . -j$(nproc)
           sudo cmake --install .
+          # Ensure CMake can find mbedtls
+          sudo mkdir -p /usr/x86_64-w64-mingw32/lib/cmake/MbedTLS
+          sudo cp *.cmake /usr/x86_64-w64-mingw32/lib/cmake/MbedTLS/
           cd ../..
 
       - name: Install MinGW Argon2
@@ -178,7 +184,7 @@ jobs:
           -DCMAKE_SYSTEM_NAME=Windows \
           -DCMAKE_PREFIX_PATH=/usr/x86_64-w64-mingw32 \
           -DCMAKE_BUILD_TYPE=Release \
-          -Dmbedtls_DIR=/usr/x86_64-w64-mingw32/lib/cmake/mbedtls \
+          -DMbedTLS_DIR=/usr/x86_64-w64-mingw32/lib/cmake/MbedTLS \
           -DVERSION=${{needs.version.outputs.version}}
 
       - name: Build
