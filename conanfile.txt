@@ -8,6 +8,6 @@ CMakeDeps
 CMakeToolchain
 
 [options]
-mbedtls:shared=True
-argon2:shared=True
-readline:shared=True
+mbedtls/*:shared=True
+argon2/*:shared=True
+readline/*:shared=True
