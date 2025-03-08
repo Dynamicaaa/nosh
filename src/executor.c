@@ -162,9 +162,9 @@ void execute_command(char *input) {
 
     // Execute the command with expanded arguments
 #ifdef _WIN32
-    // Windows implementation remains the same
     int mode = background ? _P_NOWAIT : _P_WAIT;
-    int ret = _spawnvp(mode, args[0], args);
+    // Cast args to the correct type for _spawnvp
+    int ret = _spawnvp(mode, args[0], (const char* const*)args);
     if (ret == -1) {
         if (errno == ENOENT) {
             fprintf(stderr, "nosh: %s: command not found\n", args[0]);
