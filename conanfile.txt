@@ -11,3 +11,6 @@ CMakeToolchain
 mbedtls/*:shared=True
 argon2/*:shared=True
 readline/*:shared=True
+
+[layout]
+cmake_layout

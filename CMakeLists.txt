@@ -54,43 +54,12 @@ add_executable(nosh ${SOURCES})
 if(WIN32)
     target_link_libraries(nosh PRIVATE crypt32)
     
-    # Use vcpkg's find_package for mbedtls
-    find_package(mbedtls CONFIG REQUIRED)
-    
-    # Direct path to Argon2 for Windows
-    set(ARGON2_ROOT "${CMAKE_PREFIX_PATH}/installed/x64-windows")
-    include_directories("${ARGON2_ROOT}/include")
-    target_link_libraries(nosh PRIVATE 
-        MbedTLS::mbedtls
-        MbedTLS::mbedcrypto 
-        MbedTLS::mbedx509
-        "${ARGON2_ROOT}/lib/argon2.lib")
-    
     # Windows doesn't use readline/curses
     add_definitions(-DWINDOWS_BUILD)
     
 elseif(APPLE)
     find_library(SECURITY_FRAMEWORK Security)
     find_library(CORE_FOUNDATION CoreFoundation)
-    
-    # Get MbedTLS and Argon2 paths from Homebrew
-    execute_process(
-        COMMAND brew --prefix mbedtls
-        OUTPUT_VARIABLE MBEDTLS_PREFIX
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
-    
-    execute_process(
-        COMMAND brew --prefix argon2
-        OUTPUT_VARIABLE ARGON2_PREFIX
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
-    
-    # Add include directories
-    include_directories(
-        "${MBEDTLS_PREFIX}/include"
-        "${ARGON2_PREFIX}/include"
-    )
     
     # Find Curses and Readline for Unix-like systems
     find_package(Curses REQUIRED)
@@ -103,26 +72,12 @@ elseif(APPLE)
         "-framework CoreFoundation"
         "-framework Security"
         "-framework CoreServices"
-        "${MBEDTLS_PREFIX}/lib/libmbedtls.dylib"
-        "${MBEDTLS_PREFIX}/lib/libmbedcrypto.dylib"
-        "${MBEDTLS_PREFIX}/lib/libmbedx509.dylib"
-        "${ARGON2_PREFIX}/lib/libargon2.dylib"
         ${CURSES_LIBRARIES}
         ${READLINE_LIBRARY}
-        c
     )
     
-    # Set deployment target for macOS
-    set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "Minimum OS X deployment version")
 else()
     find_package(OpenSSL REQUIRED)
-    target_link_libraries(nosh PRIVATE OpenSSL::Crypto)
-
-    # Linux dependencies
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(MBEDTLS REQUIRED mbedtls)
-    include_directories(${MBEDTLS_INCLUDE_DIRS})
-    link_directories(${MBEDTLS_LIBRARY_DIRS})
     
     # Find Curses and Readline for Unix-like systems
     find_package(Curses REQUIRED)
@@ -130,14 +85,24 @@ else()
     include_directories(${CURSES_INCLUDE_DIR})
     
     target_link_libraries(nosh PRIVATE
-        mbedtls
-        mbedcrypto
-        mbedx509
-        argon2
+        OpenSSL::Crypto
         ${CURSES_LIBRARIES}
         ${READLINE_LIBRARY}
     )
 endif()
+
+# Common dependencies from Conan
+find_package(mbedtls CONFIG REQUIRED)
+find_package(Argon2 CONFIG REQUIRED)
+find_package(Readline CONFIG REQUIRED)
+
+target_link_libraries(nosh PRIVATE
+    mbedtls::mbedtls 
+    mbedtls::mbedcrypto
+    mbedtls::mbedx509
+    argon2::argon2
+    Readline::Readline
+)
 
 # Handle Argon2 library path for macOS
 if(APPLE)
