@@ -52,7 +52,7 @@ jobs:
       - name: Install Conan
         run: |
           python -m pip install --upgrade pip
-          pip install conan
+          pip install "conan>=2.0.0"
           conan profile detect --force
 
       - name: Setup Conan Profile (Unix)
@@ -115,7 +115,8 @@ jobs:
             -s arch=x86_64 \
             -g CMakeToolchain \
             -g CMakeDeps \
-            --conf=tools.cmake.cmaketoolchain:generator=Ninja
+            -c tools.cmake.cmaketoolchain:generator=Ninja
+          ls -la build/
 
       - name: Configure Conan Dependencies (Windows)
         if: runner.os == 'Windows'
@@ -131,11 +132,13 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           source ~/.profile
+          export PATH="/usr/bin:$PATH"
           cmake -B build \
             -G Ninja \
             -DCMAKE_TOOLCHAIN_FILE=build/conan_toolchain.cmake \
             -DCMAKE_BUILD_TYPE=Release \
-            -DVERSION=${{needs.version.outputs.version}}
+            -DVERSION=${{needs.version.outputs.version}} \
+            -DCMAKE_MAKE_PROGRAM=/usr/bin/ninja
 
       - name: Configure CMake (Windows)
         if: runner.os == 'Windows'
