@@ -42,7 +42,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential ninja-build
+          sudo apt-get install -y build-essential ninja-build cmake gcc g++
 
       - name: Install Conan
         run: |
@@ -107,7 +107,8 @@ jobs:
             -s compiler.version=11 \
             -s arch=x86_64 \
             -g CMakeToolchain \
-            -g CMakeDeps
+            -g CMakeDeps \
+            --conf=tools.cmake.cmaketoolchain:generator=Ninja
 
       - name: Configure Conan Dependencies (Windows)
         if: runner.os == 'Windows'
