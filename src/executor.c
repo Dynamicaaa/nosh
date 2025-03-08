@@ -1,5 +1,4 @@
-#include "nosh.h"  // Move this first to get platform-specific headers
-#include <glob.h>
+#include "nosh.h"  // Must be first to get platform-specific headers
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,6 +12,7 @@
 #else
 #include <sys/wait.h>
 #include <unistd.h>
+#include <glob.h>  // Only include glob.h on non-Windows platforms
 #endif
 
 #define MAX_ARGS 64
