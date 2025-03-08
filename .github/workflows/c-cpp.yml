@@ -26,142 +26,52 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        include:
-          - os: macos-latest
-            arch: [x86_64, arm64]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
-      
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.x'
-          
-      - name: Install Build Tools
+
+      - name: Install Dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential ninja-build cmake gcc g++
-
-      - name: Install Build Tools (macOS)
+          sudo apt-get install -y build-essential cmake gcc g++ \
+            libssl-dev libreadline-dev libncurses5-dev \
+            ninja-build
+            
+      - name: Install Dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew install ninja
+          brew install cmake ninja openssl@3 readline ncurses argon2
 
-      - name: Install Conan
-        run: |
-          python -m pip install --upgrade pip
-          pip install "conan>=2.0.0"
-          conan profile detect --force
-
-      - name: Setup Conan Profile (Unix)
+      - name: Configure CMake (Linux)
         if: runner.os == 'Linux'
         run: |
-          cat > default_profile << EOF
-          [settings]
-          arch=x86_64
-          build_type=Release
-          compiler=gcc
-          compiler.cppstd=gnu17
-          compiler.libcxx=libstdc++11
-          compiler.version=11
-          os=Linux
-
-          [buildenv]
-          CC=/usr/bin/gcc
-          CXX=/usr/bin/g++
-          EOF
-          
-          mkdir -p ~/.conan2/profiles/
-          mv default_profile ~/.conan2/profiles/default
-
-      - name: Configure Conan Dependencies (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          conan install . \
-            --output-folder=build-x86_64 \
-            --build=missing \
-            -s build_type=Release \
-            -s arch=x86_64 \
-            -s compiler=apple-clang \
-            -s compiler.libcxx=libc++ \
-            -g CMakeToolchain \
-            -g CMakeDeps \
-            -c tools.cmake.cmaketoolchain:generator=Ninja
-
-          conan install . \
-            --output-folder=build-arm64 \
-            --build=missing \
-            -s build_type=Release \
-            -s arch=armv8 \
-            -s compiler=apple-clang \
-            -s compiler.libcxx=libc++ \
-            -g CMakeToolchain \
-            -g CMakeDeps \
-            -c tools.cmake.cmaketoolchain:generator=Ninja
-
-      - name: Configure Conan Dependencies (Unix)
-        if: runner.os == 'Linux'
-        run: |
-          mkdir -p build
-          conan install . \
-            --output-folder=build \
-            --build=missing \
-            -s build_type=Release \
-            -s compiler=gcc \
-            -s compiler.libcxx=libstdc++11 \
-            -s compiler.version=11 \
-            -s arch=x86_64 \
-            -g CMakeToolchain \
-            -g CMakeDeps \
-            -c tools.cmake.cmaketoolchain:generator=Ninja
-          ls -la build/
-
-      - name: Configure Conan Dependencies (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          conan install . `
-            --output-folder=build `
-            --build=missing `
-            -s build_type=Release `
-            -s compiler="Visual Studio"
-
-      - name: Configure CMake (Unix)
-        if: runner.os == 'Linux'
-        run: |
-          source ~/.profile
-          export PATH="/usr/bin:$PATH"
-          cmake -B build \
+          cmake -B build -S . \
             -G Ninja \
-            -DCMAKE_TOOLCHAIN_FILE=build/conan_toolchain.cmake \
             -DCMAKE_BUILD_TYPE=Release \
-            -DVERSION=${{needs.version.outputs.version}} \
-            -DCMAKE_MAKE_PROGRAM=/usr/bin/ninja
+            -DVERSION=${{needs.version.outputs.version}}
 
       - name: Configure CMake (Windows)
         if: runner.os == 'Windows'
-        shell: pwsh
         run: |
           cmake -B build -S . `
-            -DCMAKE_TOOLCHAIN_FILE=build/conan_toolchain.cmake `
             -DCMAKE_BUILD_TYPE=Release `
+            -DWINDOWS_BUILD=ON `
             -DVERSION=${{needs.version.outputs.version}}
 
-      - name: Configure CMake (macOS Universal)  
+      - name: Configure CMake (macOS Universal)
         if: runner.os == 'macOS'
         run: |
-          cmake -B build-x86_64 \
-            -DCMAKE_TOOLCHAIN_FILE=build/conan_toolchain.cmake \
-            -DCMAKE_OSX_ARCHITECTURES=x86_64 \
+          cmake -B build-x86_64 -S . \
+            -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES=x86_64 \
             -DVERSION=${{needs.version.outputs.version}}
           
-          cmake -B build-arm64 \
-            -DCMAKE_TOOLCHAIN_FILE=build/conan_toolchain.cmake \
-            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+          cmake -B build-arm64 -S . \
+            -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
             -DVERSION=${{needs.version.outputs.version}}
 
       - name: Build (Unix/Windows)
@@ -179,7 +89,7 @@ jobs:
             build-arm64/nosh \
             -output build/Release/nosh
 
-      - name: Upload Artifacts (Unix)
+      - name: Upload Artifacts (Linux)
         if: runner.os == 'Linux'
         uses: actions/upload-artifact@v4
         with:
@@ -198,6 +108,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: nosh-windows
-          path: |
-            build/Release/nosh.exe
-            build/Release/*.dll
+          path: build/Release/nosh.exe
