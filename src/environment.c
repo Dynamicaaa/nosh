@@ -8,8 +8,7 @@
 #ifdef _WIN32
     #include <windows.h>
     #define setenv(name, value, overwrite) _putenv_s(name, value)
-    extern char **_environ;
-    #define environ _environ
+    #include <stdlib.h>  // This includes _environ properly on Windows
 #else
     extern char **environ;
 #endif
