@@ -140,17 +140,23 @@ jobs:
             BREW_PREFIX="/opt/homebrew"
           fi
           
+          # Add correct library paths based on architecture
+          MBEDTLS_PREFIX="$(${BREW_PREFIX}/bin/brew --prefix mbedtls)"
+          ARGON2_PREFIX="$(${BREW_PREFIX}/bin/brew --prefix argon2)"
+          
           cmake -B build -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="${BREW_PREFIX}" \
-            -DOPENSSL_ROOT_DIR=$(${BREW_PREFIX}/bin/brew --prefix openssl) \
+            -DOPENSSL_ROOT_DIR="$(${BREW_PREFIX}/bin/brew --prefix openssl)" \
             -DCMAKE_FIND_FRAMEWORK=LAST \
             -DCMAKE_INSTALL_NAME_DIR=@executable_path/../lib \
             -DCMAKE_BUILD_WITH_INSTALL_NAME_DIR=ON \
-            -DCMAKE_LIBRARY_PATH="${BREW_PREFIX}/lib" \
-            -DCMAKE_INCLUDE_PATH="${BREW_PREFIX}/include" \
-            -DMBEDTLS_PREFIX="$(${BREW_PREFIX}/bin/brew --prefix mbedtls)" \
-            -DARGON2_PREFIX="$(${BREW_PREFIX}/bin/brew --prefix argon2)" \
-            -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch == 'arm64' && 'arm64' || 'x86_64' }}
+            -DCMAKE_LIBRARY_PATH="${BREW_PREFIX}/lib;${MBEDTLS_PREFIX}/lib;${ARGON2_PREFIX}/lib" \
+            -DCMAKE_INCLUDE_PATH="${BREW_PREFIX}/include;${MBEDTLS_PREFIX}/include;${ARGON2_PREFIX}/include" \
+            -DMBEDTLS_PREFIX="${MBEDTLS_PREFIX}" \
+            -DARGON2_PREFIX="${ARGON2_PREFIX}" \
+            -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch == 'arm64' && 'arm64' || 'x86_64' }} \
+            -DCMAKE_SHARED_LINKER_FLAGS="-L${MBEDTLS_PREFIX}/lib -L${ARGON2_PREFIX}/lib" \
+            -DCMAKE_EXE_LINKER_FLAGS="-L${MBEDTLS_PREFIX}/lib -L${ARGON2_PREFIX}/lib"
         else
           cmake -B build -DCMAKE_BUILD_TYPE=Release
         fi 
