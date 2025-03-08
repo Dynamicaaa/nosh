@@ -75,8 +75,8 @@ jobs:
           mkdir -p tarballs
           mv MacOSX11.3.sdk.tar.xz tarballs/
           UNATTENDED=1 ./build.sh
-          echo "OSXCROSS_ROOT=$PWD" >> $GITHUB_ENV
-          echo "$PWD/target/bin" >> $GITHUB_PATH
+          echo "OSXCROSS_ROOT=$(pwd)" >> $GITHUB_ENV
+          echo "$(pwd)/target/bin" >> $GITHUB_PATH
           cd ..
 
       - name: Install dependencies
@@ -88,13 +88,14 @@ jobs:
         env:
           OSXCROSS_ROOT: ${{ env.OSXCROSS_ROOT }}
         run: |
+          export PATH="$OSXCROSS_ROOT/target/bin:$PATH"
           cmake -B build -S . \
           -DCMAKE_TOOLCHAIN_FILE=cmake/darwin-toolchain.cmake \
           -DCMAKE_SYSTEM_NAME=Darwin \
           -DCMAKE_OSX_ARCHITECTURES=x86_64 \
-          -DCMAKE_C_COMPILER="${OSXCROSS_ROOT}/target/bin/o64-clang" \
-          -DCMAKE_CXX_COMPILER="${OSXCROSS_ROOT}/target/bin/o64-clang++" \
-          -DCMAKE_OSX_SYSROOT="${OSXCROSS_ROOT}/target/SDK/MacOSX11.3.sdk" \
+          -DCMAKE_C_COMPILER="$OSXCROSS_ROOT/target/bin/o64-clang" \
+          -DCMAKE_CXX_COMPILER="$OSXCROSS_ROOT/target/bin/o64-clang++" \
+          -DCMAKE_OSX_SYSROOT="$OSXCROSS_ROOT/target/SDK/MacOSX11.3.sdk" \
           -DVERSION=${{needs.version.outputs.version}}
 
       - name: Build
@@ -143,10 +144,20 @@ jobs:
           git clone https://github.com/P-H-C/phc-winner-argon2.git
           cd phc-winner-argon2
           # Build with MinGW and generate DLL
-          make SYSTEM=MINGW CC=x86_64-w64-mingw32-gcc LIBRARY_REL=libargon2.dll
+          x86_64-w64-mingw32-gcc -shared -o libargon2.dll \
+            -Iinclude -Isrc \
+            src/argon2.c src/core.c src/blake2/blake2b.c \
+            src/thread.c src/encoding.c src/opt.c \
+            -Wl,--out-implib,libargon2.dll.a
+          # Build static library
+          x86_64-w64-mingw32-gcc -c -Iinclude -Isrc \
+            src/argon2.c src/core.c src/blake2/blake2b.c \
+            src/thread.c src/encoding.c src/opt.c
+          x86_64-w64-mingw32-ar rcs libargon2.a *.o
           # Copy header and libraries
           sudo cp include/argon2.h /usr/x86_64-w64-mingw32/include/
           sudo cp libargon2.dll /usr/x86_64-w64-mingw32/bin/
+          sudo cp libargon2.dll.a /usr/x86_64-w64-mingw32/lib/libargon2.dll.a
           sudo cp libargon2.a /usr/x86_64-w64-mingw32/lib/
           cd ..
 
