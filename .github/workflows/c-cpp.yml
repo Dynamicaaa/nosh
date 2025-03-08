@@ -47,6 +47,9 @@ jobs:
   build-macos:
     needs: version
     runs-on: macos-latest
+    strategy:
+      matrix:
+        arch: [x86_64, arm64]
     steps:
       - uses: actions/checkout@v3
       - name: Install dependencies
@@ -54,19 +57,28 @@ jobs:
           brew install cmake readline openssl argon2 mbedtls
       - name: Configure CMake
         run: |
-          cmake -B build \
+          cmake -B build-${{ matrix.arch }} \
+            -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch }} \
             -DOPENSSL_ROOT_DIR=$(brew --prefix openssl) \
             -DVERSION=${{needs.version.outputs.version}}
       - name: Build
-        run: cmake --build build
-      - name: Test binary
+        run: cmake --build build-${{ matrix.arch }}
+      - name: Test binary (skip for arm64 on Intel runners)
+        if: matrix.arch == 'x86_64'
         run: |
-          test -f build/nosh
-          ./build/nosh --version || true
+          test -f build-${{ matrix.arch }}/nosh
+          ./build-${{ matrix.arch }}/nosh --version || true
+      - name: Create Universal Binary
+        if: matrix.arch == 'arm64'
+        run: |
+          lipo -create -output build/nosh \
+            build-x86_64/nosh \
+            build-arm64/nosh
       - uses: actions/upload-artifact@v4
+        if: matrix.arch == 'arm64'
         with:
-          name: nosh-macos
-          path: build/nosh*
+          name: nosh-macos-universal
+          path: build/nosh
 
   build-windows:
     needs: version
@@ -74,16 +86,20 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Install dependencies
+        shell: pwsh
         run: |
-          vcpkg install readline:x64-windows mbedtls:x64-windows argon2:x64-windows
+          vcpkg install readline:x64-windows mbedtls:x64-windows argon2:x64-windows dirent:x64-windows
       - name: Configure CMake
+        shell: pwsh
         run: |
           cmake -B build -S . `
             -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
+            -DCMAKE_C_FLAGS="/D_CRT_SECURE_NO_WARNINGS /DWIN32_LEAN_AND_MEAN" `
             -DVERSION=${{needs.version.outputs.version}}
       - name: Build
         run: cmake --build build --config Release
       - name: Test binary
+        shell: pwsh
         run: |
           if (!(Test-Path "build/Release/nosh.exe")) { exit 1 }
           .\build\Release\nosh.exe --version
