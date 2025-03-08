@@ -1,3 +1,4 @@
+#include "nosh.h"  // Move this first to get platform-specific headers
 #include <glob.h>
 #include <stdio.h>
 #include <stdlib.h>

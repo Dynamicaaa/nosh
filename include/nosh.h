@@ -12,17 +12,21 @@
     #define popen _popen
     #define pclose _pclose
     #define unlink _unlink
-    // Windows glob emulation
+    
+    // Windows glob implementation
     #define GLOB_NOMATCH 3
-    #ifndef GLOB_TILDE
-        #define GLOB_TILDE 0x0800
-    #endif
+    #define GLOB_NOSPACE 1
+    #define GLOB_ABORTED 2
+    #define GLOB_TILDE 0x0800
+    #define GLOB_NOSORT 0x0010
+    
     typedef struct {
-        size_t gl_pathc;
-        char **gl_pathv;
-        size_t gl_offs;
+        size_t gl_pathc;    /* Count of paths matched */
+        char **gl_pathv;    /* List of matched pathnames */
+        size_t gl_offs;     /* Slots to reserve in gl_pathv */
     } glob_t;
-    int glob(const char *pattern, int flags, void *errfunc, glob_t *pglob);
+
+    int glob(const char *pattern, int flags, void *unused, glob_t *pglob);
     void globfree(glob_t *pglob);
 #else
     #include <unistd.h>
