@@ -137,11 +137,12 @@ jobs:
       if: matrix.os == 'windows-latest'
       shell: msys2 {0}
       run: |
-        ./build/nosh.exe --version
+        ./build/bin/nosh.exe --version
     # Keep existing artifact upload
     - uses: actions/upload-artifact@v4
       with:
         name: nosh-${{ matrix.os }}-${{ matrix.arch }}
         path: |
           build/nosh
-          build/nosh.exe
+          build/bin/nosh.exe
+          build/bin/*.dll

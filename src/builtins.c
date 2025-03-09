@@ -15,7 +15,13 @@
 #include "help.h"     // Add this for help functions
 #include "integrity.h" // Add this for integrity functions
 #include <sys/types.h>
+#ifndef NO_PWD_H
 #include <pwd.h>
+#else
+// Windows alternatives
+#include <windows.h>
+#include <shlobj.h>
+#endif
 
 // Add forward declarations at the top after includes
 static void update_xnu_config(void);

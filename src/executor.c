@@ -6,10 +6,24 @@
 #include <errno.h>
 #include <sys/stat.h>  // Add for struct stat
 #include <sys/types.h> // Add for uid_t
-#include <pwd.h>       // Add for getuid()
+#ifndef NO_PWD_H
+#include <pwd.h>
+#else
+// Windows alternatives
+#include <windows.h>
+#include <shlobj.h>
+#endif
 #include <time.h>      // Add this for time() and ctime()
 #include "executor.h"
 #include "builtins.h"
+
+#ifdef _WIN32
+#include <windows.h>
+#include <sddl.h>
+#else
+#include <pwd.h>
+#include <unistd.h>
+#endif
 
 // Update the XNU config structure
 static struct {
@@ -175,15 +189,50 @@ static int check_command_security(const char *cmd) {
 
     // Add file permission checks
     if (xnu_config.enforce_file_perms) {
+#ifdef _WIN32
+    // Windows-specific user check
+    HANDLE hToken;
+    DWORD dwSize = 0;
+    PTOKEN_USER pTokenUser = NULL;
+    
+    if (OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &hToken)) {
+        // Get the required buffer size
+        GetTokenInformation(hToken, TokenUser, NULL, 0, &dwSize);
+        if (dwSize) {
+            pTokenUser = (PTOKEN_USER)malloc(dwSize);
+            if (GetTokenInformation(hToken, TokenUser, pTokenUser, dwSize, &dwSize)) {
+                // Use pTokenUser->User.Sid to check permissions
+                BOOL isAdmin = FALSE;
+                SID_IDENTIFIER_AUTHORITY NtAuthority = SECURITY_NT_AUTHORITY;
+                PSID adminGroup;
+                
+                if (AllocateAndInitializeSid(&NtAuthority, 2,
+                    SECURITY_BUILTIN_DOMAIN_RID, DOMAIN_ALIAS_RID_ADMINS,
+                    0, 0, 0, 0, 0, 0, &adminGroup)) {
+                    CheckTokenMembership(NULL, adminGroup, &isAdmin);
+                    FreeSid(adminGroup);
+                }
+                
+                if (!isAdmin) {
+                    // Non-admin user, perform security check
+                    // Add your security logic here
+                }
+            }
+            free(pTokenUser);
+        }
+        CloseHandle(hToken);
+    }
+#else
+    uid_t uid = getuid();
         struct stat st;
         if (stat(cmd, &st) == 0) {
             // Only allow execution of files owned by root or current user
-            uid_t uid = getuid();
             if (st.st_uid != 0 && st.st_uid != uid) {
                 fprintf(stderr, "Error: XNU mode restricts execution to root/user owned files\n");
                 return 0;
             }
         }
+#endif
     }
 
     return 1;

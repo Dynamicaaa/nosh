@@ -30,6 +30,10 @@
 #include <readline/history.h>
 #endif
 
+#ifdef _WIN32
+#include <winsock2.h>
+#endif
+
 // This flag ensures we only clear the screen on actual exit, not on errors
 static int actually_exiting = 0;
 
@@ -58,12 +62,20 @@ void print_version(void) {
 int main(int argc, char *argv[]) {
     // Process command-line arguments first
     for (int i = 1; i < argc; i++) {
-        // Check for version flag
         if (strcmp(argv[i], "--version") == 0 || strcmp(argv[i], "-v") == 0) {
             print_version();
             return 0;
         }
     }
+
+    #ifdef _WIN32
+    // Initialize Windows Sockets
+    WSADATA wsaData;
+    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+        fprintf(stderr, "Failed to initialize Windows Sockets\n");
+        return 1;
+    }
+    #endif
 
     char hostname[256];
     char *username = getlogin();
@@ -152,6 +164,11 @@ int main(int argc, char *argv[]) {
         execute_command(input);
         free(input);
     }
+
+    #ifdef _WIN32
+    // Cleanup Windows Sockets on exit
+    WSACleanup();
+    #endif
 
     return 0;
 }

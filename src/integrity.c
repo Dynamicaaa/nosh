@@ -83,7 +83,11 @@ int store_file_hash(const char* filename, const unsigned char* hash) {
     snprintf(hash_path, sizeof(hash_path), "%s/%s.hash", hash_dir, filename);
     
     // Create integrity directory if it doesn't exist
-    mkdir(hash_dir, 0700);
+#ifdef _WIN32
+    mkdir(hash_dir);  // Windows version doesn't use permissions
+#else
+    mkdir(hash_dir, 0700);  // Unix version with permissions
+#endif
 
     FILE* fp = fopen(hash_path, "wb");
     if (!fp) return 0;
