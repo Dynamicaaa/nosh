@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.15)
 # Version components
 set(NOSH_VERSION_MAJOR 0)
 set(NOSH_VERSION_MINOR 1)
-set(NOSH_VERSION_PATCH 0)
+set(NOSH_VERSION_PATCH 1)
 
 # Create base version string
 set(NOSH_BASE_VERSION "${NOSH_VERSION_MAJOR}.${NOSH_VERSION_MINOR}.${NOSH_VERSION_PATCH}")
@@ -55,9 +55,9 @@ if(WIN32)
     target_link_libraries(nosh PRIVATE 
         ws2_32          # For socket functions
         iphlpapi        # For GetAdaptersInfo
-        bcrypt         # For BCryptGenRandom
-        pdcurses       # For terminal functions
-        crypt32        # For crypto functions
+        bcrypt          # For BCryptGenRandom
+        pdcurses        # For terminal functions
+        crypt32         # For crypto functions
         mbedtls
         mbedcrypto 
         mbedx509
@@ -70,6 +70,20 @@ if(WIN32)
         WIN32_LEAN_AND_MEAN
         _GNU_SOURCE
     )
+
+    # Copy required DLLs to the output directory after build.
+    # This ensures that the DLL files (instead of being found dynamically) are placed alongside the executable.
+    # Assumes that the DLLs are located in the "dll" directory in the project root.
+    set(DLL_DIR "${CMAKE_SOURCE_DIR}/dll")
+    file(GLOB WIN_DLLS "${DLL_DIR}/*.dll")
+    foreach(dll ${WIN_DLLS})
+        add_custom_command(TARGET nosh POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different ${dll} $<TARGET_FILE_DIR:nosh>
+            COMMENT "Copying ${dll} to output directory"
+        )
+    endforeach()
+
+    # TODO: Allow configuration of the DLL source directory via a CMake option for greater flexibility.
 elseif(APPLE)
     find_library(SECURITY_FRAMEWORK Security)
     find_library(CORE_FOUNDATION CoreFoundation)

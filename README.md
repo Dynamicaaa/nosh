@@ -106,17 +106,16 @@ On Windows (using MSYS2):
     **On macOS, you might need to provide additional hints to CMake:**
 
     ```bash
-     cmake .. -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_PREFIX_PATH="$(brew --prefix)" \
-          -DOPENSSL_ROOT_DIR=$(brew --prefix openssl) \
-          -DMBEDTLS_ROOT_DIR=$(brew --prefix mbedtls) \
-          -DARGON2_ROOT_DIR=$(brew --prefix argon2) \
-          -DCMAKE_FIND_FRAMEWORK=LAST \
-          -DCMAKE_INSTALL_NAME_DIR=@executable_path/../lib \
-          -DCMAKE_BUILD_WITH_INSTALL_NAME_DIR=ON \
-          -DCMAKE_LIBRARY_PATH="$(brew --prefix mbedtls)/lib;$(brew --prefix argon2)/lib" \
-          -DCMAKE_INCLUDE_PATH="$(brew --prefix mbedtls)/include;$(brew --prefix argon2)/include" \
-          -DCMAKE_C_FLAGS="-I$(brew --prefix mbedtls)/include -I$(brew --prefix argon2)/include"
+    cmake .. -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_PREFIX_PATH="$(brew --prefix)" \
+        -DMBEDTLS_ROOT_DIR=$(brew --prefix mbedtls) \
+        -DARGON2_ROOT_DIR=$(brew --prefix argon2) \
+        -DCMAKE_FIND_FRAMEWORK=LAST \
+        -DCMAKE_INSTALL_NAME_DIR=@executable_path/../lib \
+        -DCMAKE_BUILD_WITH_INSTALL_NAME_DIR=ON \
+        -DCMAKE_LIBRARY_PATH="/usr/local/lib" \
+        -DCMAKE_INCLUDE_PATH="/usr/local/include" \
+        -DCMAKE_EXE_LINKER_FLAGS="-L/usr/local/lib"
     ```
      If building for a specific architecture on macOS (e.g., arm64), also add: `-DCMAKE_OSX_ARCHITECTURES=arm64`  (replace `arm64` with `x86_64` if needed).
 
@@ -197,6 +196,8 @@ On Windows (using MSYS2):
 -   `citrus add <service> <username>` - Add a password
 -   `citrus get <service> <username>` - Retrieve a password
 -   `citrus list` - List stored passwords
+-   `integrity verify <file>` - Verify file integrity
+-   `integrity gen <file>` - Generate integrity hash for file
 
 ### Network Security
 
@@ -228,12 +229,26 @@ echo /etc/*.conf
 
 XNU mode provides enhanced security for sensitive operations:
 
--   Disables command history
--   Disables aliases
--   Sanitizes commands to prevent injection
--   Clears terminal on exit
+- Disables command history
+- Disables aliases 
+- Sanitizes commands to prevent injection
+- Blocks path traversal attempts
+- Enforces file permission checks
+- Only allows execution of root/user-owned files
+- Never logs commands
+- Clears terminal on exit
 
-Enable with the `xnu` command or start with `./nosh --xnu`.
+Enable with:
+```bash
+# Enable XNU mode persistently
+nconfig xnu true
+
+# Disable XNU mode
+nconfig xnu false
+
+# Start shell in XNU mode
+./nosh --xnu
+```
 
 ## Password Manager
 

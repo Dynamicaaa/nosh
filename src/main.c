@@ -138,13 +138,6 @@ int main(int argc, char *argv[]) {
             break;
         }
 
-        // Handle XNU toggle directly
-        if (strcmp(input, "xnu") == 0) {
-            enable_xnu_mode();
-            free(input);
-            continue;
-        }
-
         // Only do alias substitution if not in XNU mode
         if (!is_xnu_mode_enabled()) {
             substitute_alias(input);

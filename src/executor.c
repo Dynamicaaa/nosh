@@ -4,8 +4,20 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <sys/stat.h>  // Add for struct stat
+#include <sys/types.h> // Add for uid_t
+#include <pwd.h>       // Add for getuid()
+#include <time.h>      // Add this for time() and ctime()
 #include "executor.h"
 #include "builtins.h"
+
+// Update the XNU config structure
+static struct {
+    int block_path_traversal;     // Block ../../../ patterns
+    int enforce_file_perms;       // Check file permissions
+    int restrict_net_access;      // Restrict network access
+    int audit_enabled;            // Enable audit logging
+} xnu_config = {1, 1, 1, 0};      // Audit disabled by default
 
 #ifdef _WIN32
 #include <process.h>
@@ -106,6 +118,77 @@ static char* expand_env_vars(const char* input) {
     return expanded;
 }
 
+// Add path traversal check function
+static int contains_path_traversal(const char *path) {
+    if (!path) return 0;
+    
+    const char *p = path;
+    while (*p) {
+        if (p[0] == '.' && p[1] == '.' && (p[2] == '/' || p[2] == '\\'))
+            return 1;
+        p++;
+    }
+    return 0;
+}
+
+// Add audit logging function
+static void audit_log(const char *cmd, const char *result) {
+    if (!xnu_config.audit_enabled) return;
+    
+    time_t now = time(NULL);
+    char *timestamp = ctime(&now);
+    timestamp[strlen(timestamp)-1] = 0; // Remove newline
+    
+    char log_path[PATH_MAX];
+    snprintf(log_path, sizeof(log_path), "%s/.nosh/audit.log", getenv("HOME"));
+    FILE *log = fopen(log_path, "a");
+    if (log) {
+        fprintf(log, "[%s] CMD: %s | RESULT: %s\n", timestamp, cmd, result);
+        fclose(log);
+    }
+}
+
+// Add enhanced security checks to command execution
+
+static int check_command_security(const char *cmd) {
+    if (!is_xnu_mode_enabled()) {
+        // Log regular commands to command history log
+        time_t now = time(NULL);
+        char *timestamp = ctime(&now);
+        timestamp[strlen(timestamp)-1] = 0; // Remove newline
+        
+        char log_path[PATH_MAX];
+        snprintf(log_path, sizeof(log_path), "%s/.nosh/command_history.log", getenv("HOME"));
+        FILE *log = fopen(log_path, "a");
+        if (log) {
+            fprintf(log, "[%s] %s\n", timestamp, cmd);
+            fclose(log);
+        }
+        return 1;
+    }
+
+    // XNU mode security checks
+    if (xnu_config.block_path_traversal && contains_path_traversal(cmd)) {
+        fprintf(stderr, "Error: Path traversal attempts blocked in XNU mode\n");
+        return 0;
+    }
+
+    // Add file permission checks
+    if (xnu_config.enforce_file_perms) {
+        struct stat st;
+        if (stat(cmd, &st) == 0) {
+            // Only allow execution of files owned by root or current user
+            uid_t uid = getuid();
+            if (st.st_uid != 0 && st.st_uid != uid) {
+                fprintf(stderr, "Error: XNU mode restricts execution to root/user owned files\n");
+                return 0;
+            }
+        }
+    }
+
+    return 1;
+}
+
 void execute_command(char *input) {
     // First sanitize the command if in XNU mode
     char *sanitized_input = NULL;
@@ -181,6 +264,9 @@ void execute_command(char *input) {
         return;
     }
     if (pid == 0) {
+        if (!check_command_security(args[0])) {
+            exit(EXIT_FAILURE);
+        }
         if (execvp(args[0], args) < 0) {
             // Customize error message based on errno
             if (errno == ENOENT) {
@@ -194,6 +280,8 @@ void execute_command(char *input) {
         if (!background) {
             int status;
             waitpid(pid, &status, 0);
+            // Log the result of the command execution
+            audit_log(args[0], WIFEXITED(status) && WEXITSTATUS(status) == 0 ? "SUCCESS" : "FAILURE");
         } else {
             printf("Process %d running in background\n", pid);
         }

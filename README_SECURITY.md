@@ -14,11 +14,24 @@
 
 XNU mode enhances security for sensitive operations, providing an "incognito" mode for the shell.
 
-*   **Command History Protection:** Commands executed in XNU mode are *not* added to the shell's history, preventing casual snooping and accidental leakage of sensitive information.
-*   **Command Sanitization:**  Prevents shell metacharacter injection attacks.  Potentially dangerous characters (`;`, `|`, `&`, `` ` `` (backtick), `$`, `>`, and `<`) are replaced with spaces.  This mitigates risks from untrusted input or accidental misuse of shell features.  Note that redirection using `2>` (stderr redirection) is specifically *allowed* for error handling.
-*   **Alias Isolation:** Disables alias substitution.  This prevents potential command hijacking where an alias might be redefined to execute malicious code.
-*   **Terminal Clearing:**  Automatically clears the terminal screen (including the scrollback buffer) upon exiting XNU mode. This minimizes the risk of sensitive information remaining visible on the screen.  The `CLEAR_SEQUENCE` macro, defined in `nosh.h`, handles this: `"\033[H\033[2J\033[3J"`.
+*   **Command History Protection:** Commands executed in XNU mode are *not* logged or added to history, preventing any trace of sensitive operations.
+*   **Command Sanitization:** Prevents shell metacharacter injection attacks. Potentially dangerous characters (`;`, `|`, `&`, `` ` `` (backtick), `$`, `>`, and `<`) are replaced with spaces. Note that redirection using `2>` (stderr redirection) is specifically *allowed* for error handling.
+*   **Alias Isolation:** Disables alias substitution to prevent potential command hijacking.
+*   **Path Traversal Protection:** Blocks attempts to use `../` patterns to access parent directories, preventing directory traversal attacks.
+*   **File Permission Enforcement:** Only allows execution of files owned by root or the current user, providing an additional layer of security.
+*   **Command Auditing:** Unlike regular mode which logs to command_history.log, XNU mode does not log any commands to maintain maximum privacy.
+*   **Terminal Clearing:** Automatically clears the terminal screen (including scrollback buffer) upon exiting.
 *   **Persistence:** The XNU mode setting (enabled/disabled) is stored persistently between sessions in the `~/.nosh_xnu_mode` file. This ensures consistent security behavior.
+
+To enable/disable XNU mode:
+
+```bash
+# Enable XNU mode
+nconfig xnu true
+
+# Disable XNU mode
+nconfig xnu false
+```
 
 **Implementation Details:**
 
@@ -27,9 +40,10 @@ XNU mode enhances security for sensitive operations, providing an "incognito" mo
     *   `is_xnu_mode_enabled()`:  Returns the current XNU mode status.
     *   `load_xnu_mode()`: Loads the XNU mode state from the `~/.nosh_xnu_mode` file at shell startup.
     *   `handle_builtin()`:  Checks `is_xnu_mode_enabled()` before performing actions that are restricted in XNU mode (e.g., accessing history, using aliases).
-*   **`executor.c`:**
-    *   `sanitize_command()`:  This function performs the command sanitization.  It's called *before* any command execution if XNU mode is enabled.
-
+*   **`executor.c`:** Implements core security checks:
+    - `contains_path_traversal()`: Detects path traversal attempts
+    - `check_command_security()`: Enforces XNU mode restrictions
+    - `sanitize_command()`: Sanitizes dangerous shell operators
     ```c
     // In executor.c
     static char* sanitize_command(const char* input) {
@@ -50,6 +64,16 @@ XNU mode enhances security for sensitive operations, providing an "incognito" mo
 
         return sanitized;
     }
+    ```
+*   **Configuration:** All security features are enabled by default through the `xnu_config` structure:
+    ```c
+    static struct {
+        int block_path_traversal;     // Block ../../../ patterns
+        int enforce_file_perms;       // Check file permissions
+        int restrict_net_access;      // Restrict network access
+        int audit_enabled;            // Enable audit logging
+        int xnu_enabled;             // Enable XNU mode
+    } xnu_config = {1, 1, 1, 0, 0};   // Security on, audit and XNU off by default
     ```
 
 ### Secure File Wiping
@@ -231,6 +255,64 @@ int check_suspicious_activity(void) {
 
 ```
 
+### Audit Logging
+
+The shell supports optional audit logging of all commands:
+
+- Disabled by default for privacy
+- Can be enabled persistently with `nconfig audit true`
+- Can be enabled for single session with `./nosh --audit`
+- Logs stored in `~/.nosh/audit.log`
+- Log format: `[timestamp] CMD: command | RESULT: success/failure`
+- Not available in XNU mode for security
+
+**Implementation Details:**
+
+```c
+static void audit_log(const char *cmd, const char *result) {
+    if (!xnu_config.audit_enabled) return;
+    // ... logging implementation
+}
+```
+
+### File Integrity Verification
+
+The shell provides built-in file integrity verification using SHA-256 hashes:
+
+*   **Hash Generation:** Creates cryptographic hashes of files using SHA-256
+*   **Secure Storage:** Stores hashes in `~/.nosh/integrity/` with restricted permissions
+*   **Verification:** Checks files against stored hashes to detect modifications
+*   **Cross-Platform:** Works consistently across Linux, macOS, and Windows
+
+**Implementation Details:**
+
+*   **`integrity.c`:** Contains the core integrity verification functions:
+    *   `verify_file_integrity()`: Verifies a file against its stored hash
+    *   `generate_file_hash()`: Generates and stores a new file hash
+    *   `calculate_file_hash()`: Computes SHA-256 hash using mbed TLS
+*   **Storage Format:**
+    *   Hashes stored in `~/.nosh/integrity/<filename>.hash`
+    *   Each hash file contains 32-byte SHA-256 hash
+    *   Directory permissions set to 0700 (owner-only access)
+
+**Usage Examples:**
+
+```bash
+# Generate hash for important file
+integrity gen /etc/passwd
+
+# Verify file hasn't been modified
+integrity verify /etc/passwd
+```
+
+### Security Configuration
+
+The `nconfig` command provides granular control over security features:
+
+```bash
+nconfig <feature> <true/false>
+```
+
 ## Security Design Principles
 
 *   **Defense in Depth:** `nosh` employs multiple layers of security:
@@ -396,7 +478,6 @@ Use XNU mode whenever you are:
 3.  **Sophisticated Memory Analysis Attacks:**  A determined attacker with sufficient access to your system might be able to extract the master key from memory, even with the precautions taken by `nosh`.
 4.  **Physical Access Attacks:**  If an attacker has physical access to your computer, they can potentially bypass all security measures.
 5.  **Zero-Day Vulnerabilities:**  `nosh` (like any software) may contain unknown vulnerabilities that could be exploited.
-6. **Path Traversal:** `nosh` does not attempt to block path traversal.
 
 ## Security Audit Trail
 
@@ -420,15 +501,11 @@ Planned security improvements:
 
 1.  **Hardware Key Support:**  Integration with hardware security keys (e.g., YubiKey) for master password authentication.
 2.  **Multi-Factor Authentication (MFA):**  Adding support for MFA to the password manager.
-3.  **Enhanced XNU Mode:**  Potentially incorporating mandatory access controls (MAC) to further restrict operations in XNU mode.
-4.  **File Integrity Verification:**  Adding features to verify the integrity of system files.
-5.  **Enhanced Network Security Scanning:**  Improving the `network` commands to provide more detailed and accurate security assessments.
-6.  **Secure Remote Operation:**  Adding features for securely managing remote systems.
-7.  **Audit Logging:**  Implementing more comprehensive audit logging for security-relevant events.
-8.  **Secure Update Mechanism:**  Providing a secure way to update `nosh` to the latest version.
-9.  **Sandboxing:**  Exploring options for sandboxing command execution to limit the impact of potential vulnerabilities.
-10. **Integration with System Security Frameworks:**  Leveraging existing system security frameworks (e.g., SELinux, AppArmor) where available.
-11. **Path Traversal Prevention:** Adding features to check for and block path traversal.
+3.  **File Integrity Verification:**  Adding features to verify the integrity of system files.
+4.  **Enhanced Network Security Scanning:**  Improving the `network` commands to provide more detailed and accurate security assessments.
+5.  **Secure Remote Operation:**  Adding features for securely managing remote systems.
+6.  **Secure Update Mechanism:**  Providing a secure way to update `nosh` to the latest version.
+7. **Integration with System Security Frameworks:**  Leveraging existing system security frameworks (e.g., SELinux, AppArmor) where available.
 
 ## Security Compliance
 
